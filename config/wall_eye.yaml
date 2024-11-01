@@ -1,0 +1,49 @@
+config_tf:
+  base:
+    parent_frame_id: world
+    transform:
+      rotation:
+        x: 0
+        y: 0
+        z: 0
+        w: 1
+      translation:
+        x: 0
+        y: 0
+        z: 0
+  camera:
+    parent_frame_id: base
+    transform:
+      rotation:
+        x: -0.866
+        y: 0
+        z: 0
+        w: 0.5
+      translation:
+        x: 0
+        y: -500
+        z: 500
+  tool0_controller:
+    parent_frame_id: base
+    transform:
+      rotation:
+        x: 0
+        y: 0
+        z: 0
+        w: 1
+      translation:
+        x: 0
+        y: 0
+        z: 0
+  flange:
+    parent_frame_id: tool0_controller
+    transform:
+      rotation:
+        x: 0
+        y: 0
+        z: 0
+        w: 1
+      translation:
+        x: 0
+        y: 0
+        z: 0

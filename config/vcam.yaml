@@ -1,0 +1,7 @@
+config:
+  vcam:
+    ws: smabo
+    model: "mesh/scn.ply"
+sensors:
+  frame: 0
+

@@ -1,0 +1,8 @@
+config:
+  report:
+    "altitude": -25
+    "width": 1920
+    "rows": 4
+    recipe: "/dashboard/recipe"
+    keys: ["__recipe__", "pcount","fitness","rmse","azimuth","rotation","Tx","Ty","Tz","tcap","tfeat","tmatch"]
+    labels: ["レシピ", "点数","一致度","平均誤差","傾き[deg]","回転[deg]","X移動[mm]","Y移動[mm]","Z移動[mm]","撮影処理時間[sec]","特徴処理時間[sec]","マッチング処理時間[sec]"]

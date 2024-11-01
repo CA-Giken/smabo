@@ -1,0 +1,8 @@
+<launch>
+  <node pkg="rtk_tools" type="panel.py" output="screen" name="" args="
+  conf:=$(find smabo)/setup.zui
+  dump:=$(find smabo)/recipe/param.yaml geom:=360x800-0+20">
+    <remap from="~loads" to="/request/recipe_load" />
+    <remap from="~open" to="/response/recipe_open" />
+  </node>
+</launch>

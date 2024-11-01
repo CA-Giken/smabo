@@ -1,0 +1,80 @@
+config:
+  dashboard:
+    recipe:
+      link: smabo/recipe
+      dir: smabo/recipe.d
+    altitude: '+0'
+    message:
+      halt: "を停止します"
+    font:
+      size: 10
+    color:
+      background: "#00AAFF"
+      lit: "#FF7700"
+      unlit: "#888888"
+      mask: "#222222"
+    launch_vcam:
+      label: "仮想カメラ"
+      package: smabo
+      file: vcam.launch
+#      auto: 1
+    launch_cam:
+      label: "カメラ"
+      package: smabo
+      file: cam.launch
+#      auto: 1
+#    launch_rsock:
+#      label: "ロボット"
+#      package: rovi_industrial
+#      file: ur10.launch
+#      auto: 6
+#      args:
+#        address: "111.222.333.444"
+    launch_vt:
+      label: "VT"
+      package: smabo
+      file: vt.launch
+#      auto: 8
+    launch_setup:
+      label: "セットアップ"
+      package: smabo
+      file: setup.launch
+      pre: ["wmctrl -r rviz -e 0,0,0,1550,875"]
+#     auto: 13
+    launch_viewer:
+      label: "Viewer"
+      package: smabo
+      file: viewer.launch
+#     auto: 10
+
+    indicator1:
+      label: "CAM"
+      topic: /camera/stat
+      type: std_msgs/Bool
+      timeout: 2
+    indicator2:
+      label: "接続"
+      topic: /rsocket/enable
+      type: std_msgs/Bool
+      timeout: 2
+    indicator3:
+      label: "通信"
+      topic: /rsocket/stat
+      type: std_msgs/Bool
+      timeout: 2
+  panel:
+    color:
+      background: "#00AAFF"
+    lift: false
+    message:
+      save: "現在のレシピに上書きします。"
+      reopen: "レシピが変更されたため保存できません。パネルを一旦閉じるか、ダッシュボードからレシピを開いた後、やり直します。"
+  rsocket:
+    robot_ip: '127.0.0.1'
+    port: 3000
+    update_frame_id: tool0_controller
+
+config_tf:
+  base:
+    parent_frame_id: world
+

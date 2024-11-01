@@ -1,0 +1,5 @@
+<launch>
+  <rosparam command="load" file="$(find smabo)/config/vcam.yaml" />
+  <rosparam command="load" file="$(find smabo)/config/wall_eye.yaml" />
+  <node pkg="smabo" type="vcam.py" name="" output="screen" />
+</launch>

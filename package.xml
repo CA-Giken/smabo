@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>smabo</name>
+  <version>1.0.0</version>
+  <description>Smart Robot Integrator</description>
+
+  <maintainer email="kazuki.hiraizumi@ca-giken.com">KazukiHiraizumi</maintainer>
+  <license>BSD</license>
+  <url type="website">http://github.com/CA-Giken/smabo</url>
+  <author email="kazuki.hiraizumi@ca-giken.com">KazukiHiraizumi</author>
+
+  <buildtool_depend>catkin</buildtool_depend>
+</package>
