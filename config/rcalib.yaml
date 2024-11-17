@@ -1,0 +1,86 @@
+config:
+  vcam:
+    height: 1080
+    width: 1280
+    wx: 600
+    wy: 500
+    wd: 600
+  scene:
+    meshes:
+    - ['package://vcam3d/mesh/YCAM3D.stl','camera',[0.8,0.8,0.8]]
+    - ['package://vcam3d/mesh/ThreeFinger.stl','tool0_controller',[0.0,0.6,1.0]]
+  searcher:
+    solver: "ransac_solver"
+
+cropper:
+  streaming: True
+  ladw: 0
+  mesh: 0
+
+searcher:
+  streaming: True
+
+config_tf:
+  base:
+    parent_frame_id: world
+    transform:
+      rotation:
+        x: 0
+        y: 0
+        z: 0
+        w: 1
+      translation:
+        x: 0
+        y: 0
+        z: 0
+  camera:
+    parent_frame_id: base
+    transform:
+      rotation:
+        w: 0.00322703445269
+        x: 0.704780529792
+        y: 0.709416731561
+        z: 0.00137552009922
+      translation:
+        x: 0 #1233.98803719
+        y: 0 #-923.237113707
+        z: 1357.02396049
+
+  tool0_controller:
+    parent_frame_id: base
+    transform:
+      rotation:
+        x: 0
+        y: 0
+        z: 0
+        w: 1
+      translation:
+        x: 0
+        y: 0
+        z: 0
+  flange:
+    parent_frame_id: tool0_controller
+    transform:
+      rotation:
+        x: 0
+        y: 0
+        z: 0
+        w: 1
+      translation:
+        x: 0
+        y: 0
+        z: 0
+
+  tool1:
+    parent_frame_id: flange
+    transform:
+      rotation:
+        x: 1
+        y: 0
+        z: 0
+        w: 0
+      translation:
+        x: 0
+        y: 0
+        z: 500
+

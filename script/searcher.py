@@ -20,36 +20,36 @@ from std_msgs.msg import Float64
 from std_msgs.msg import String
 from std_msgs.msg import Float32MultiArray
 from std_msgs.msg import MultiArrayDimension
-from sensor_msgs.msg import PointCloud
+from sensor_msgs.msg import PointCloud2
 from geometry_msgs.msg import Transform
 from geometry_msgs.msg import TransformStamped
 from rovi_utils import tflib
 from rovi_utils import sym_solver as rotsym
 from rovi_utils import axis_solver as rotjour
 from scipy import optimize
+from smabo import open3d_conversions
+from smabo import icp_solver as icp
 
 Param={
-  "normal_radius":0.003,
-  "feature_radius":0.01,
+  "normal_radius":10,
+  "feature_radius":15,
   "normal_min_nn":25,
-  "distance_threshold":0.1,
-  "icp_threshold":0.001,
+  "distance_threshold":10,
+  "icp_threshold":3,
   "rotate":0,
   "repeat":1,
-  "cutter":{"base":0,"offset":0,"width":0,"crop":0,"align":"x","trim":0}
+  "cutter":{"base":0,"offset":0,"width":0,"crop":0,"align":"x","trim":0},
+  "fitness":0.7
 }
 Config={
-  "proc":0,
   "path":"recipe",
-  "scenes":["surface"],
   "solver":"o3d_solver",
-  "scene_frame_ids":[],
-  "master_frame_ids":[],
-  "base_frame_id":"world",
+  "base_frame_id":"base",
+  "calib_frame_id":"base",
   "align_frame_id":"camera/capture0",
+  "master_frame_id":"master0",
   "mesh":"/cropper/mesh" }
 Score={
-  "proc":[],
   "Tx":[],
   "Ty":[],
   "Tz":[],
@@ -75,18 +75,17 @@ def getRT(base,ref):
     RT=None
   return RT
 
-def learn_feat(mod,param):
-  mesh=rospy.get_param(Config["mesh"])
-  print("searcher::learn_feat mesh",mesh)
-  mods=[]
-  for m in mod:
-    pc=o3d.geometry.PointCloud()
-    pc.points=o3d.utility.Vector3dVector(m)
-    pcdn=pc.voxel_down_sample(mesh)
-    mods.append(np.array(pcdn.points))
-  pcd=solver.learn(mods,param)
-  if Config["proc"]==0: o3d.io.write_point_cloud("/tmp/model.ply",pcd[0])
-  return pcd
+def learn_feat(pcd,param):
+  try:
+    mesh=rospy.get_param(Config["mesh"])
+  except Exception:
+    mesh=0
+  if mesh>0:
+    pcdn=pcd.voxel_down_sample(mesh)
+  else:
+    pcdn=pcd
+  mpcd=solver.learn([np.array(pcdn.points)],param)
+  return mpcd[0]
 
 def learn_rot(pc,num,thres):
   global RotAxis,tfReg
@@ -121,116 +120,87 @@ def learn_journal(pc,base,ofs,wid,align):
       print('searcher::learn_journal No journal')
 
 def cb_master(event):
-  if Config["proc"]==0:
-    for n,l in enumerate(Config["scenes"]):
-      print("searcher::cb_master",len(Model[n]))
-      if Model[n] is not None: pub_pcs[n].publish(np2F(Model[n]))
+  if ModelPC2 is not None: pub_pc2.publish(ModelPC2)
 
 def cb_save(msg):
-  global Model,tfReg
+  global Model,ModelPC2,tfReg,Master_Frame_Id
 #save point cloud
-  for n,l in enumerate(Config["scenes"]):
-    if Scene[n] is None: continue
-    pc=o3d.geometry.PointCloud()
-    m=Scene[n]
-    if(len(m)==0):
-      pub_err.publish("searcher::save::point cloud ["+l+"] has no point")
-      pub_saved.publish(mFalse)
-      return
-    Model[n]=m
-    pc.points=o3d.utility.Vector3dVector(m)
-    o3d.io.write_point_cloud(Config["path"]+"/"+l+".ply",pc,True,False)
-    pub_pcs[n].publish(np2F(m))
-  tfReg=[]
-#copy TF scene...->master... and save them
-  for s,m in zip(Config["scene_frame_ids"],Config["master_frame_ids"]):
-    try:
-      tf=tfBuffer.lookup_transform(Config["base_frame_id"],s,rospy.Time())
-    except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
-      tf=TransformStamped()
-      tf.header.stamp=rospy.Time.now()
-      tf.header.frame_id=Config["base_frame_id"]
-      tf.transform.rotation.w=1
-    path=Config["path"]+"/"+m.replace('/','_')+".yaml"
-    f=open(path,"w")
-    f.write(yaml.dump(tflib.tf2dict(tf.transform)))
-    f.close()
-    tf.child_frame_id=m
-    tfReg.append(tf)
-  if Config["proc"]==0: broadcaster.sendTransform(tfReg)
+  if ScenePC2 is None:
+    pub_saved.publish(mFalse)
+    print("searcher::cb_save Scene is None")
+    return
+  ModelPC2=copy.copy(ScenePC2)
+  try:
+    tf=tfBuffer.lookup_transform(Config["base_frame_id"],ModelPC2.header.frame_id,rospy.Time())
+  except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
+    pub_saved.publish(mFalse)
+    print("searcher::cb_save No frame found")
+    return
+  Master_Frame_Id=ModelPC2.header.frame_id+"/"+Config["master_frame_id"]
+  tf.child_frame_id=Master_Frame_Id
+  path=Config["path"]+"/"+Master_Frame_Id.replace('/','_')+".yaml"
+  f=open(path,"w")
+  f.write(yaml.dump(tflib.tf2dict(tf.transform)))
+  f.close()
+  Model=open3d_conversions.from_msg(ModelPC2)
+  if(len(Model.points)==0):
+    pub_saved.publish(mFalse)
+    print("searcher::cb_save No Scene.points")
+    return
+  o3d.io.write_point_cloud(path.replace('.yaml','.ply'),Model,True,False)
+  trac=TransformStamped()
+  trac.header=copy.copy(tf.header)
+  trac.header.frame_id=Master_Frame_Id
+  trac.child_frame_id=Master_Frame_Id+"/solve0"
+  trac.transform=tflib.fromRT(np.eye(4))
+  tfReg=[tf,trac]
+  broadcaster.sendTransform(tfReg)
   pcd=learn_feat(Model,Param)
-#  pvar=calc_pvar()
-#  pub_pvar.publish(pvar)
-  learn_rot(pcd[0],Param['rotate'],Param['icp_threshold'])
-  pub_msg.publish("searcher::master plys and frames saved")
+  learn_rot(pcd,Param['rotate'],Param['icp_threshold'])
   pub_saved.publish(mTrue)
-  rospy.Timer(rospy.Duration(0.1),cb_master,oneshot=True)
+  ModelPC2.header.frame_id=trac.child_frame_id
+  pub_pc2.publish(ModelPC2)
 
 def cb_load(msg):
-  global Model,tfReg,Param
-#load point cloud
-  for n,l in enumerate(Config["scenes"]):
-    pcd=o3d.io.read_point_cloud(Config["path"]+"/"+l+".ply")
-    Model[n]=np.reshape(np.asarray(pcd.points),(-1,3))
-  rospy.Timer(rospy.Duration(0.1),cb_master,oneshot=True)
+  global Model,ModelPC2,tfReg,Param,Master_Frame_Id
   tfReg=[]
-#load TF such as master/camera...
-  for m in Config["master_frame_ids"]:
-    path=Config["path"]+"/"+m.replace('/','_')+".yaml"
-    try:
-      f=open(path, "r+")
-    except Exception:
-      pub_msg.publish("searcher error::master TF file load failed"+path)
-      tf=TransformStamped()
-      tf.header.stamp=rospy.Time.now()
-      tf.header.frame_id=Config["base_frame_id"]
-      tf.child_frame_id=m
-      tf.transform.rotation.w=1
-      tfReg.append(tf)
-    else:
-      yd=yaml.load(f,Loader=yaml.SafeLoader)
-      f.close()
-      trf=tflib.dict2tf(yd)
-      tf=TransformStamped()
-      tf.header.stamp=rospy.Time.now()
-      tf.header.frame_id=Config["base_frame_id"]
-      tf.child_frame_id=m
-      tf.transform=trf
-      tfReg.append(tf)
-      Param['transform']=tflib.toRT(trf)
-  Param.update(rospy.get_param("~param"))
-  print('searcher::cb_load learning pc [rotate,cut-width]',Param['rotate'],Param["cutter"]["width"])
+#load .tf files
+  ls=os.listdir(Config["path"])
+  dottf=list(filter(lambda f:f.endswith(Config["master_frame_id"]+'.yaml'),ls))
+  Master_Frame_Id=dottf[0].replace('_','/').replace('.yaml','')
+  path=Config["path"]+"/"+dottf[0]
+  try:
+    print("searcher::cb_load",path)
+    f=open(path, "r+")
+  except Exception:
+    pub_loaded.publish(mFalse)
+    print("searcher::cb_load .tf load error")
+    return
+  yd=yaml.load(f,Loader=yaml.SafeLoader)
+  f.close()
+  trf=tflib.dict2tf(yd)
+  tf=TransformStamped()
+  tf.header.stamp=rospy.Time.now()
+  tf.header.frame_id=Config["base_frame_id"]
+  tf.child_frame_id=Master_Frame_Id
+  tf.transform=trf
+
+  trac=TransformStamped()
+  trac.header=copy.copy(tf.header)
+  trac.header.frame_id=tf.child_frame_id
+  trac.child_frame_id=tf.child_frame_id+"/solve0"
+  trac.transform=tflib.fromRT(np.eye(4))
+
+  tfReg=[tf,trac]
+  broadcaster.sendTransform(tfReg)
+
+  Model=o3d.io.read_point_cloud(path.replace('.yaml','.ply'))
   pcd=learn_feat(Model,Param)
-  learn_rot(pcd[0],Param['rotate'],Param['icp_threshold'])
-  learn_journal(pcd[0],Param["cutter"]["base"],Param["cutter"]["offset"],Param["cutter"]["width"],Param["cutter"]["align"])
-  if JourAxis is not None:
-    lvar=Param["cutter"]
-    pcx=pcd[0].transform(np.linalg.inv(JourAxis))
-    if lvar["offset"]>0:
-      if (lvar["trim"]&1)==1:  #crop outside
-        cx1=abs(lvar["crop"])
-        cx2=lvar["offset"]
-        box1=o3d.geometry.AxisAlignedBoundingBox(min_bound=(-cx1 if (lvar["trim"]&6)==2 else -10000,-10000,-10000),max_bound=(cx1,10000,10000))
-        pcx1=pcx.crop(box1)
-        pcd1=pcx1.transform(JourAxis)
-        box2=o3d.geometry.AxisAlignedBoundingBox(min_bound=(cx2-cx1,-10000,-10000),max_bound=(cx2+cx1 if (lvar["trim"]&6)==4 else 10000,10000,10000))
-        pcx2=pcx.crop(box2)
-        pcd2=pcx2.transform(JourAxis)
-        Model[0]=np.concatenate((np.array(pcd1.points),np.array(pcd2.points)),axis=0)
-      else:  #crop inside
-        cx1=-abs(lvar["crop"])
-        cx2=lvar["offset"]+abs(lvar["crop"])
-        box1=o3d.geometry.AxisAlignedBoundingBox(min_bound=(cx1,-10000,-10000), max_bound=(cx2,10000,10000))
-        pcx1=pcx.crop(box1)
-        pcd1=pcx1.transform(JourAxis)
-        Model[0]=np.array(pcd1.points)
-    else:
-      print("searcher::cb_load cutter/offset should be >0")
-    learn_feat(Model,Param)
-    rospy.Timer(rospy.Duration(0.2),cb_master,oneshot=True)
-  if Config["proc"]==0: broadcaster.sendTransform(tfReg)
-  pub_msg.publish("searcher::model loaded and learning completed")
+  learn_rot(pcd,Param['rotate'],Param['icp_threshold'])
+  learn_journal(pcd,Param["cutter"]["base"],Param["cutter"]["offset"],Param["cutter"]["width"],Param["cutter"]["align"])
   pub_loaded.publish(mTrue)
+  ModelPC2=open3d_conversions.to_msg(Model,frame_id=trac.child_frame_id)
+  pub_pc2.publish(ModelPC2)
 
 def cb_score():
   global Score
@@ -300,7 +270,6 @@ def cb_solve_do(msg):
     Score["Qz"].append(tf.rotation.z)
     Score["Qw"].append(tf.rotation.w)
 
-  result["proc"]=float(Config["proc"])
   for key in result:
     if type(result[key]) is not list: # scalar->list
       Score[key]=[result[key]]*len(RTs)
@@ -308,47 +277,36 @@ def cb_solve_do(msg):
       Score[key]=result[key]
   cb_score()
 
-def cb_ps(msg,n):
-  global Scene
-  pc=np.reshape(msg.data,(-1,3))
-  Scene[n]=pc
-  print("searcher::cb_ps",pc.shape)
+def cb_pc2(msg):
+  global ScenePC2
+  ScenePC2=msg
+#  print("searcher::cb_pc2",ScenePC2.row_step)
 
 def cb_clear(msg):
-  global Scene
-  for n,l in enumerate(Config["scenes"]):
-    Scene[n]=None
+  global mTs
+  mTs=np.eye(4)
+  tfReg[-1].transform=tflib.fromRT(mTs)
+  broadcaster.sendTransform(tfReg)
   rospy.Timer(rospy.Duration(0.1),cb_master,oneshot=True)
 
-def cb_busy(event):
-  global Score
-  if len(Score["proc"])<Param["repeat"]:
-    pub_busy.publish(mTrue)
-    rospy.Timer(rospy.Duration(0.5),cb_busy,oneshot=True)
-  else:
-    pub_busy.publish(mFalse)
-
-def cb_dump(msg):
-#dump informations
-  for n,l in enumerate(Config["scenes"]):
-    if Scene[n] is None: continue
-    pc=o3d.geometry.PointCloud()
-    m=Scene[n]
-    if(len(m)==0): continue
-    pc.points=o3d.utility.Vector3dVector(m)
-    o3d.io.write_point_cloud("/tmp/"+l+".ply",pc,True,False)
-
-def cb_param(msg):
-  global Param
-  prm=Param.copy()
+def cb_scan(msg):
+  global Scene,mTs,Param
   try:
     Param.update(rospy.get_param("~param"))
   except Exception as e:
     print("get_param exception:",e.args)
-  if prm!=Param:
-    print("Param changed",Param)
-    learn_feat(Model,Param)
-  rospy.Timer(rospy.Duration(1),cb_param,oneshot=True)
+  if Param["streaming"] and ScenePC2 is not None and Model is not None:
+    Scene=open3d_conversions.from_msg(ScenePC2)
+    result=icp.solve(Model,Scene,Param,mTs)
+    print("searcher::icp",result["fitness"])
+    if result["fitness"]>Param["fitness"]:
+      mTs=result["transform"]
+      tfReg[-1].transform=tflib.fromRT(mTs)
+      broadcaster.sendTransform(tfReg)
+      rospy.Timer(rospy.Duration(0.1),cb_master,oneshot=True)
+    else:
+      cb_clear(None)
+  rospy.Timer(rospy.Duration(0.5),cb_scan,oneshot=True)
   return
 
 def parse_argv(argv):
@@ -379,25 +337,17 @@ print("Param",Param)
 exec("from smabo import "+Config["solver"]+" as solver")
 
 ###I/O
-pub_pcs=[]
-for n,c in enumerate(Config["scenes"]):
-  rospy.Subscriber("~in/"+c+"/floats",numpy_msg(Floats),cb_ps,n)
-  pub_pcs.append(rospy.Publisher("~master/"+c+"/floats",numpy_msg(Floats),queue_size=1))
+pub_pc2=rospy.Publisher("~out/pc2",PointCloud2,queue_size=1)
 pub_Y2=rospy.Publisher("~solved",Bool,queue_size=1)
-pub_busy=rospy.Publisher("~stat",Bool,queue_size=1)
 pub_saved=rospy.Publisher("~saved",Bool,queue_size=1)
 pub_loaded=rospy.Publisher("~loaded",Bool,queue_size=1)
 pub_score=rospy.Publisher("~score",Float32MultiArray,queue_size=1)
+rospy.Subscriber("~in/pc2",PointCloud2,cb_pc2)
 rospy.Subscriber("~clear",Bool,cb_clear)
 rospy.Subscriber("~solve",Bool,cb_solve)
-if Config["proc"]==0: rospy.Subscriber("~save",Bool,cb_save)
+rospy.Subscriber("~save",Bool,cb_save)
 rospy.Subscriber("~load",Bool,cb_load)
-if Config["proc"]==0: rospy.Subscriber("~redraw",Bool,cb_master)
-if Config["proc"]==0: rospy.Subscriber("/searcher/dump",Bool,cb_dump)
-pub_hash=rospy.Publisher("~hash",Int64,queue_size=1)
-pub_msg=rospy.Publisher("/message",String,queue_size=1)
-pub_err=rospy.Publisher("/error",String,queue_size=1)
-pub_pvar=rospy.Publisher("~pvar",Float64,queue_size=1)
+rospy.Subscriber("~redraw",Bool,cb_master)
 
 ###std_msgs/Bool
 mTrue=Bool()
@@ -410,15 +360,18 @@ tfBuffer=tf2_ros.Buffer()
 listener=tf2_ros.TransformListener(tfBuffer)
 broadcaster=tf2_ros.StaticTransformBroadcaster()
 
-###data
-Scene=[None]*len(Config["scenes"])
-Model=[None]*len(Config["scenes"])
-RotAxis=None
-JourAxis=None
-tfReg=[]
+###Globals
+Scene=None     #as O3D
+ScenePC2=None  #as ROS
+Model=None    #as O3D
+ModelPC2=None #as PointCloud2
 
-rospy.Timer(rospy.Duration(5),cb_load,oneshot=True)
-rospy.Timer(rospy.Duration(1),cb_param,oneshot=True)
+mTs=np.eye(4) #model to scene conversion
+tfReg=[]      #as TransformStamped
+Master_Frame_Id=""
+
+#rospy.Timer(rospy.Duration(5),cb_load,oneshot=True)
+rospy.Timer(rospy.Duration(1),cb_scan,oneshot=True)
 try:
   rospy.spin()
 except KeyboardInterrupt:
