@@ -1,8 +1,38 @@
 <launch>
   <rosparam command="load" file="$(find smabo)/config/rcalib.yaml" />
+  <rosparam command="load" file="$(find smabo)/rcalib/param.yaml" />
+<!--broadcast TF-->
   <node pkg="rovi_utils" type="config_tf.py" name="config_tf">
     <remap from="reload/config_tf" to="/request/redraw" />
   </node>
+
+<!--nodes for robot calib-->
+  <node pkg="smabo" type="searcher.py" name="" args="path:=$(find smabo)/rcalib" output="screen">
+    <remap from="~config" to="/config/searcher" />
+    <remap from="~param" to="/searcher" />
+    <remap from="~in/pc2" to="/camera/pc2" />
+    <remap from="~out/pc2" to="/searcher/pc2" />
+    <remap from="~fitness" to="/searcher/fitness" />
+    <remap from="~rmse" to="/searcher/rmse" />
+    <remap from="~clear" to="/request/clear" />
+    <remap from="~save" to="/request/model_save" />
+    <remap from="~saved" to="/response/model_save" />
+    <remap from="~redraw" to="/request/redraw" />
+  </node>
+  <node pkg="smabo" type="rcalib.py" name="" output="screen">
+    <remap from="~config" to="/config/rcalib" />
+    <remap from="~clear" to="/request/clear" />
+    <remap from="~capture" to="/request/capture" />
+    <remap from="~solve" to="/request/solve" />
+    <remap from="~cleared" to="/response/clear" />
+    <remap from="~captured" to="/response/capture" />
+    <remap from="~solved" to="/response/solve" />
+    <remap from="~count" to="/rcalib/count" />
+    <remap from="~Terror" to="/rcalib/Terror" />
+    <remap from="~Rerror" to="/rcalib/Rerror" />
+  </node>
+
+<!--building cyber space with RViz-->
   <node pkg="vcam3d" type="env.py" name="environment" />
   <node ns="camera" pkg="vcam3d" type="vcam.py" name="">
     <remap from="~config" to="/config/vcam" />
@@ -11,20 +41,7 @@
     <remap from="~Y1" to="/camera/Y1" />
     <remap from="~pc2" to="/camera/pc2" />
   </node>
-  <node pkg="smabo" type="searcher.py" name="" args="path:=$(find smabo)/rcalib" output="screen">
-    <remap from="~config" to="/config/searcher" />
-    <remap from="~param" to="/searcher" />
-    <remap from="~in/pc2" to="/camera/pc2" />
-    <remap from="~out/pc2" to="/searcher/pc2" />
-    <remap from="~clear" to="/request/clear" />
-    <remap from="~load" to="/request/model_load" />
-    <remap from="~loaded" to="/response/recipe_load" />
-    <remap from="~save" to="/request/model_save" />
-    <remap from="~saved" to="/response/model_save" />
-    <remap from="~redraw" to="/request/redraw" />
-  </node>
-
-  <!--Virtual 2D camera (only camera parameter)-->
+  <node pkg="vcam3d" type="hand.py" name="" />
   <node ns="camera" pkg="rostopic" name="camera_info" type="rostopic"
       args="pub camera_info sensor_msgs/CameraInfo
      '{header: {seq: 0, stamp: {secs: 0, nsecs: 0}, frame_id: 'camera'},
@@ -37,13 +54,14 @@
       P: [1035, 0.0, 226, 0.0,
           0.0, 1035, 224, 0.0,
           0.0, 0.0, 1.0, 0.0]}' -r 1" />
-
-  <node pkg="vcam3d" type="hand.py" name="" />
   <node pkg="rviz" type="rviz" name="" args="-d $(find smabo)/rcalib.rviz" />
-<!--
-  <node pkg="rtk_tools" type="panel.py" output="screen" name="" args="
+
+<!--Connect to UR-->
+  <include file="$(find rovi_industrial)/ur/ur10.launch" />
+
+<!--User Input Panel-->
+  <node pkg="rtk_tools" type="panel.py" name="" args="
     conf:=$(find smabo)/rcalib.zui
-    dump:=$(find smabo)/config/rcalib.yaml geom:=360x800-0+20">
+    dump:=$(find smabo)/rcalib/param.yaml geom:=360x800+1600+20">
   </node>
--->
 </launch>

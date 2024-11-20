@@ -1,81 +1,23 @@
 cropper:
-  cropR: 0
-  cropR2: 0.08
-  cropZ: 0
-  cropZup: 0
-  ladC: 0
-  ladW: 0
-  mesh: 2
-  nfmin: 20
-  nfrad: 5
+  ladC: 10000
+  mesh: 0
   wd: 0
-picker:
-  azimuth:
-    max: 360
-    min: 0
-  fitness:
-    max: 10
-    min: 0.7
-  rotX:
-    max: 33
-    min: -31
-  rotation:
-    max: 25
-    min: -25
-prepro:
-  box0_crop: 150
-  box0_points: 100
-  box0_step: 5
-  box0_vcrop: 30
-  box0_width: 20
-  bucket_height: 330
-  bucket_width: 951
-  bucket_yclip: -450
-  enable: 1
-  peak_fitness: 0.5
-  peak_length: 500
-  peak_order: 20
-  peak_rmse: 1.5
-  peak_threshold: 3
-  peak_width: 50
-  ss_dist: -15
-  ss_ext: 50
-  ss_ry: 15
-  view_crop: 100
-revolver:
-  deg: 0
-  enable: 1
-rovi:
-  pshift_genpc:
-    calc:
-      bw_diff: 8
-      darkness: 5
-  ycam:
-    ExposureTimeLevel: 6
-    camera:
-      Gain: 0
-    projector:
-      Intensity: 250
-rsocket:
-  base_frame_id: ''
-  source_frame_id: ''
-  target_frame_id: ''
+
 searcher:
-  cutter:
-    align: y
-    base: 10
-    crop: -7.5
-    distance: 500
-    offset: 75
-    trim: 0
-    width: 7
-  distance_threshold: 20
-  feature_mesh: 4
-  feature_radius: 20
   icp_threshold: 3
-  normal_min_nn: 5
-  normal_radius: 8
-  repeat: 1
-  rotate: 0
-update:
-  patch: patch_20240219.zip
+  fitness: 0.7
+  normal_radius: 10
+
+config_tf:
+  camera:
+    parent_frame_id: base
+    transform:
+      rotation:
+        w: 0.0
+        x: 0.707
+        y: 0.707
+        z: 0.0
+      translation:
+        x: 0.
+        y: -500.
+        z: 1300.

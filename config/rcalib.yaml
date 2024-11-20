@@ -3,14 +3,23 @@ config:
     height: 1080
     width: 1280
     wx: 600
-    wy: 500
+    wy: 506  #wx*height/width
     wd: 600
   scene:
     meshes:
+#    - ['package://vcam3d/mesh/circle.stl','tool1',[0.8,0.6,0.6]]
     - ['package://vcam3d/mesh/YCAM3D.stl','camera',[0.8,0.8,0.8]]
     - ['package://vcam3d/mesh/ThreeFinger.stl','tool0_controller',[0.0,0.6,1.0]]
   searcher:
     solver: "ransac_solver"
+  rsocket:
+    robot_ip: "127.0.0.1"
+  rcalib:
+    on_hand: False
+    board_frame_id: camera/master0/solve0
+    camera_frame_id: camera
+    flange_frame_id: tool0_controller
+    mount_frame_id: base
 
 cropper:
   streaming: True
@@ -37,14 +46,14 @@ config_tf:
     parent_frame_id: base
     transform:
       rotation:
-        w: 0.00322703445269
-        x: 0.704780529792
-        y: 0.709416731561
-        z: 0.00137552009922
+        w: 0.0
+        x: 0.707
+        y: 0.707
+        z: 0.0
       translation:
-        x: 0 #1233.98803719
-        y: 0 #-923.237113707
-        z: 1357.02396049
+        x: 0.
+        y: -500.
+        z: 1300.
 
   tool0_controller:
     parent_frame_id: base

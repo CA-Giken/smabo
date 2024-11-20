@@ -23,7 +23,7 @@ from std_msgs.msg import MultiArrayDimension
 from sensor_msgs.msg import PointCloud2
 from geometry_msgs.msg import Transform
 from geometry_msgs.msg import TransformStamped
-from rovi_utils import tflib
+from smabo import tflib
 from rovi_utils import sym_solver as rotsym
 from rovi_utils import axis_solver as rotjour
 from scipy import optimize
@@ -129,7 +129,11 @@ def cb_save(msg):
     pub_saved.publish(mFalse)
     print("searcher::cb_save Scene is None")
     return
-  ModelPC2=copy.copy(ScenePC2)
+  if ScenePC2.row_step<1000:
+    pub_saved.publish(mFalse)
+    print("searcher::cb_save few Scene points")
+    return
+  ModelPC2=copy.deepcopy(ScenePC2)
   try:
     tf=tfBuffer.lookup_transform(Config["base_frame_id"],ModelPC2.header.frame_id,rospy.Time())
   except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
@@ -143,10 +147,6 @@ def cb_save(msg):
   f.write(yaml.dump(tflib.tf2dict(tf.transform)))
   f.close()
   Model=open3d_conversions.from_msg(ModelPC2)
-  if(len(Model.points)==0):
-    pub_saved.publish(mFalse)
-    print("searcher::cb_save No Scene.points")
-    return
   o3d.io.write_point_cloud(path.replace('.yaml','.ply'),Model,True,False)
   trac=TransformStamped()
   trac.header=copy.copy(tf.header)
@@ -280,7 +280,6 @@ def cb_solve_do(msg):
 def cb_pc2(msg):
   global ScenePC2
   ScenePC2=msg
-#  print("searcher::cb_pc2",ScenePC2.row_step)
 
 def cb_clear(msg):
   global mTs
@@ -298,7 +297,6 @@ def cb_scan(msg):
   if Param["streaming"] and ScenePC2 is not None and Model is not None:
     Scene=open3d_conversions.from_msg(ScenePC2)
     result=icp.solve(Model,Scene,Param,mTs)
-    print("searcher::icp",result["fitness"])
     if result["fitness"]>Param["fitness"]:
       mTs=result["transform"]
       tfReg[-1].transform=tflib.fromRT(mTs)
@@ -306,6 +304,12 @@ def cb_scan(msg):
       rospy.Timer(rospy.Duration(0.1),cb_master,oneshot=True)
     else:
       cb_clear(None)
+    fitness=Float64()
+    fitness.data=result["fitness"]
+    pub_fitness.publish(fitness)
+    rmse=Float64()
+    rmse.data=result["rmse"]
+    pub_rmse.publish(rmse)
   rospy.Timer(rospy.Duration(0.5),cb_scan,oneshot=True)
   return
 
@@ -342,6 +346,8 @@ pub_Y2=rospy.Publisher("~solved",Bool,queue_size=1)
 pub_saved=rospy.Publisher("~saved",Bool,queue_size=1)
 pub_loaded=rospy.Publisher("~loaded",Bool,queue_size=1)
 pub_score=rospy.Publisher("~score",Float32MultiArray,queue_size=1)
+pub_fitness=rospy.Publisher("~fitness",Float64,queue_size=1)
+pub_rmse=rospy.Publisher("~rmse",Float64,queue_size=1)
 rospy.Subscriber("~in/pc2",PointCloud2,cb_pc2)
 rospy.Subscriber("~clear",Bool,cb_clear)
 rospy.Subscriber("~solve",Bool,cb_solve)

@@ -10,4 +10,5 @@
   <author email="kazuki.hiraizumi@ca-giken.com">KazukiHiraizumi</author>
 
   <buildtool_depend>catkin</buildtool_depend>
+  <depend>ros_numpy</depend>
 </package>
