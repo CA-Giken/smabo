@@ -23,7 +23,7 @@
     <remap from="~config" to="/config/rcalib" />
     <remap from="~clear" to="/request/clear" />
     <remap from="~capture" to="/request/capture" />
-    <remap from="~solve" to="/request/solve" />
+    <remap from="~solve" to="/rcalib/solve" />
     <remap from="~cleared" to="/response/clear" />
     <remap from="~captured" to="/response/capture" />
     <remap from="~solved" to="/response/solve" />

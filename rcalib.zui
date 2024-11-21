@@ -9,7 +9,7 @@
 "class":"Echo",   "label":"RMSE","name":"/searcher/rmse","format":".2f"
 "class":"Pub",    "label":"取り込み","name":"/request/capture"
 "class":"Title", "label":"1-3.解析"
-"class":"Pub",    "label":"解析","name":"/request/solve"
+"class":"Pub",    "label":"解析","name":"/rcalib/solve"
 "class":"Echo",   "label":"誤差","name":"/rcalib/Terror"
 "class":"Number", "label":"基準／カメラ変換 位置 X","name":"/config_tf/camera/transform/translation/x","format":".3f"
 "class":"Number", "label":"Y","name":"/config_tf/camera/transform/translation/y","format":".3f"

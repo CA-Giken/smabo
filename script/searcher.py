@@ -12,7 +12,7 @@ import copy
 import os
 import sys
 import yaml
-from rovi.msg import Floats
+from smabo.msg import Floats
 from rospy.numpy_msg import numpy_msg
 from std_msgs.msg import Bool
 from std_msgs.msg import Int64
