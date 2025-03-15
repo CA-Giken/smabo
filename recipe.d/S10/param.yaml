@@ -1,0 +1,39 @@
+cropper:
+  cropR: 0
+  cropR2: 0.08
+  cropZ: 0
+  cropZup: 1000
+  ladC: 0
+  ladW: 35000
+  mesh: 2.5
+  nfmin: 20
+  nfrad: 0
+  wd: 0
+picker:
+  azimuth:
+    max: 360
+    min: 0
+  fitness:
+    max: 10
+    min: 0.7
+  rotX:
+    max: 20
+    min: -10
+  rotation:
+    max: 25
+    min: -25
+rsocket:
+  base_frame_id: ''
+  source_frame_id: ''
+  target_frame_id: ''
+searcher:
+  feature_fitness: 0
+  feature_mesh: 8
+  feature_radius: 10
+  feature_threshold: 10
+  icp_fitness: 0.7
+  icp_threshold: 3
+  normal_min_nn: 5
+  normal_radius: 10
+  repeat: 1
+  rotate: 0

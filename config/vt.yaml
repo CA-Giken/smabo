@@ -1,7 +1,7 @@
 config:
   searcher:
-    proc: 0
-    solver: "ransac_solver"
+    streaming: false
+    solver: "feature_solver"
     scenes: ["surface"]
     scene_frame_ids: ["camera/capture0"]
     master_frame_ids: ["camera/master0"]

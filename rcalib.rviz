@@ -4,7 +4,7 @@ Panels:
     Name: Displays
     Property Tree Widget:
       Expanded:
-        - /TF1/Frames1
+        - /TF1/Status1
       Splitter Ratio: 0.6579710245132446
     Tree Height: 154
   - Class: rviz/Selection
@@ -55,7 +55,7 @@ Visualization Manager:
       Enabled: true
       Name: InteractiveMarkers
       Show Axes: false
-      Show Descriptions: true
+      Show Descriptions: false
       Show Visual Aids: false
       Update Topic: /hand_marker/update
       Value: true
@@ -65,21 +65,17 @@ Visualization Manager:
       Frames:
         All Enabled: false
         base:
-          Value: false
-        base_link:
           Value: true
+        base_link:
+          Value: false
         camera:
           Value: true
-        camera/master0:
-          Value: true
-        camera/master0/solve0:
-          Value: true
         ee_link:
-          Value: true
+          Value: false
         flange:
           Value: true
         tool0:
-          Value: true
+          Value: false
         tool0_controller:
           Value: true
         tool1:
@@ -87,7 +83,7 @@ Visualization Manager:
         world:
           Value: true
         wrist_3_link:
-          Value: true
+          Value: false
       Marker Alpha: 1
       Marker Scale: 300
       Name: TF
@@ -99,9 +95,6 @@ Visualization Manager:
           base:
             camera:
               {}
-            camera/master0:
-              camera/master0/solve0:
-                {}
             tool0_controller:
               flange:
                 tool1:
@@ -229,70 +222,18 @@ Visualization Manager:
     - Alpha: 1
       Class: rviz/RobotModel
       Collision Enabled: false
-      Enabled: true
+      Enabled: false
       Links:
         All Links Enabled: true
         Expand Joint Details: false
         Expand Link Details: false
         Expand Tree: false
         Link Tree Style: Links in Alphabetic Order
-        base:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        base_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        ee_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        forearm_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        shoulder_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        tool0:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        upper_arm_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        world:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        wrist_1_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        wrist_2_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        wrist_3_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
       Name: RobotModel
       Robot Description: robot_description
       TF Prefix: ""
       Update Interval: 0
-      Value: true
+      Value: false
       Visual Enabled: true
   Enabled: true
   Global Options:
@@ -322,7 +263,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 1735.30224609375
+      Distance: 3316.36279296875
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -338,9 +279,9 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.5447975397109985
+      Pitch: 0.24479791522026062
       Target Frame: <Fixed Frame>
-      Yaw: 5.981714725494385
+      Yaw: 6.141717910766602
     Saved:
       - Class: rviz/Orbit
         Distance: 1735.30224609375
@@ -380,5 +321,5 @@ Window Geometry:
   Views:
     collapsed: false
   Width: 1519
-  X: 17
+  X: 14
   Y: 0

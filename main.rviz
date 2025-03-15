@@ -4,7 +4,6 @@ Panels:
     Name: Displays
     Property Tree Widget:
       Expanded:
-        - /Status1
         - /TF1/Frames1
       Splitter Ratio: 0.6261467933654785
     Tree Height: 639
@@ -25,7 +24,7 @@ Panels:
   - Class: rviz/Time
     Name: Time
     SyncMode: 0
-    SyncSource: PointCloud
+    SyncSource: PointCloud2(Scene)
 Preferences:
   PromptSaveOnExit: true
 Toolbars:
@@ -55,7 +54,7 @@ Visualization Manager:
       Enabled: true
       Frame Timeout: 15
       Frames:
-        All Enabled: true
+        All Enabled: false
         base:
           Value: true
         camera:
@@ -64,18 +63,32 @@ Visualization Manager:
           Value: true
         camera/capture0/solve0:
           Value: true
+        camera/capture1:
+          Value: true
+        camera/capture2:
+          Value: true
         camera/master0:
+          Value: true
+        camera/master0/solve0:
           Value: true
         flange:
           Value: true
+        flange/capture0:
+          Value: true
+        flange/capture1:
+          Value: true
+        flange/capture2:
+          Value: true
         tool0_controller:
+          Value: true
+        tool1:
           Value: true
         world:
           Value: true
       Marker Alpha: 1
-      Marker Scale: 1
+      Marker Scale: 500
       Name: TF
-      Show Arrows: true
+      Show Arrows: false
       Show Axes: true
       Show Names: true
       Tree:
@@ -86,11 +99,23 @@ Visualization Manager:
             camera/capture0:
               camera/capture0/solve0:
                 {}
+            camera/capture1:
+              {}
+            camera/capture2:
+              {}
+            camera/master0:
+              camera/master0/solve0:
+                {}
+            flange/capture0:
+              {}
+            flange/capture1:
+              {}
+            flange/capture2:
+              {}
             tool0_controller:
               flange:
-                {}
-          camera/master0:
-            {}
+                tool1:
+                  {}
       Update Interval: 0
       Value: true
     - Class: rviz/Marker
@@ -110,22 +135,22 @@ Visualization Manager:
         Value: true
       Axis: Z
       Channel Name: intensity
-      Class: rviz/PointCloud
-      Color: 85; 170; 255
+      Class: rviz/PointCloud2
+      Color: 170; 255; 255
       Color Transformer: FlatColor
       Decay Time: 0
       Enabled: true
       Invert Rainbow: false
       Max Color: 255; 255; 255
       Min Color: 0; 0; 0
-      Name: PointCloud
+      Name: PointCloud2(Scene)
       Position Transformer: XYZ
       Queue Size: 10
       Selectable: false
       Size (Pixels): 1
       Size (m): 0.009999999776482582
       Style: Points
-      Topic: /scene/surface/pc
+      Topic: /sensors/pc2
       Unreliable: false
       Use Fixed Frame: true
       Use rainbow: true
@@ -139,77 +164,21 @@ Visualization Manager:
       Axis: Z
       Channel Name: intensity
       Class: rviz/PointCloud2
-      Color: 0; 170; 255
-      Color Transformer: FlatColor
-      Decay Time: 0
-      Enabled: false
-      Invert Rainbow: false
-      Max Color: 255; 255; 255
-      Min Color: 0; 0; 0
-      Name: PointCloud2
-      Position Transformer: XYZ
-      Queue Size: 10
-      Selectable: false
-      Size (Pixels): 1
-      Size (m): 0.009999999776482582
-      Style: Points
-      Topic: /sensors/pc2
-      Unreliable: false
-      Use Fixed Frame: true
-      Use rainbow: true
-      Value: false
-    - Alpha: 1
-      Autocompute Intensity Bounds: true
-      Autocompute Value Bounds:
-        Max Value: 10
-        Min Value: -10
-        Value: true
-      Axis: Z
-      Channel Name: intensity
-      Class: rviz/PointCloud
-      Color: 85; 0; 255
-      Color Transformer: FlatColor
-      Decay Time: 0
-      Enabled: false
-      Invert Rainbow: false
-      Max Color: 255; 255; 255
-      Min Color: 0; 0; 0
-      Name: PointCloud
-      Position Transformer: XYZ
-      Queue Size: 10
-      Selectable: true
-      Size (Pixels): 1
-      Size (m): 0.009999999776482582
-      Style: Points
-      Topic: /master/surface/pc
-      Unreliable: false
-      Use Fixed Frame: true
-      Use rainbow: true
-      Value: false
-    - Alpha: 1
-      Autocompute Intensity Bounds: true
-      Autocompute Value Bounds:
-        Max Value: 10
-        Min Value: -10
-        Value: true
-      Axis: Z
-      Channel Name: intensity
-      Class: rviz/PointCloud
-      Color: 255; 170; 0
+      Color: 255; 255; 127
       Color Transformer: FlatColor
       Decay Time: 0
       Enabled: true
       Invert Rainbow: false
       Max Color: 255; 255; 255
       Min Color: 0; 0; 0
-      Name: PointCloud
+      Name: PointCloud2(Master)
       Position Transformer: XYZ
       Queue Size: 10
-      Selectable: true
+      Selectable: false
       Size (Pixels): 1
       Size (m): 0.009999999776482582
       Style: Points
-      Topic: /master/surface/pc0
+      Topic: /master/pc2
       Unreliable: false
       Use Fixed Frame: true
       Use rainbow: true
@@ -242,7 +211,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 639.2297973632812
+      Distance: 2319.8134765625
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -250,17 +219,17 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: 55.091922760009766
-        Y: -167.8076629638672
-        Z: 323.64471435546875
+        X: 53.85505676269531
+        Y: -852.2254638671875
+        Z: 273.93206787109375
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.20480211079120636
+      Pitch: 0.8947974443435669
       Target Frame: <Fixed Frame>
-      Yaw: 4.745452404022217
+      Yaw: 3.1553969383239746
     Saved: ~
 Window Geometry:
   Displays:
@@ -278,5 +247,5 @@ Window Geometry:
   Views:
     collapsed: false
   Width: 1550
-  X: 0
+  X: -3
   Y: 0

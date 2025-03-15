@@ -13,7 +13,7 @@ import copy
 from std_msgs.msg import Bool
 from geometry_msgs.msg import Transform
 from sensor_msgs.msg import PointCloud2
-from saisun3d import open3d_conversions
+from smabo import open3d_conversions
 from rovi_utils import tflib
 from rovi.msg import Floats
 from rospy.numpy_msg import numpy_msg

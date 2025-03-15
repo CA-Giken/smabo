@@ -1,13 +1,13 @@
 config:
   vcam:
     height: 1080
-    width: 1280
+    width: 1080
     wx: 600
-    wy: 506  #wx*height/width
+    wy: 600  #wx*height/width
     wd: 600
   scene:
     meshes:
-#    - ['package://vcam3d/mesh/circle.stl','tool1',[0.8,0.6,0.6]]
+    - ['package://vcam3d/mesh/circle.stl','tool1',[0.8,0.6,0.6]]
     - ['package://vcam3d/mesh/YCAM3D.stl','camera',[0.8,0.8,0.8]]
     - ['package://vcam3d/mesh/ThreeFinger.stl','tool0_controller',[0.0,0.6,1.0]]
   searcher:
