@@ -1,6 +1,5 @@
 config:
   searcher:
-    streaming: false
     solver: "feature_solver"
     scenes: ["surface"]
     scene_frame_ids: ["camera/capture0"]
@@ -20,4 +19,7 @@ config:
     base_frame_id: "base"
   rsocket:
     base_frame_id: "flange"
+
+searcher:
+  streaming: false
 
