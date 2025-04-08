@@ -12,25 +12,27 @@ import copy
 import os
 import sys
 import yaml
-from smabo.msg import Floats
-from rospy.numpy_msg import numpy_msg
+from scipy.spatial.transform import Rotation as R
+#from smabo.msg import Floats
+#from rospy.numpy_msg import numpy_msg
 from std_msgs.msg import Bool
 from std_msgs.msg import Int64
 from std_msgs.msg import Float64
 from std_msgs.msg import String
-from std_msgs.msg import Float32MultiArray
-from std_msgs.msg import MultiArrayDimension
 from sensor_msgs.msg import PointCloud2
 from geometry_msgs.msg import Transform
 from geometry_msgs.msg import TransformStamped
+from geometry_msgs.msg import Pose
+from geometry_msgs.msg import PoseArray
 from smabo import tflib
-from rovi_utils import sym_solver as rotsym
-from rovi_utils import axis_solver as rotjour
+#from rovi_utils import sym_solver as rotsym
+#from rovi_utils import axis_solver as rotjour
 from scipy import optimize
 from smabo import open3d_conversions
 from smabo import icp_solver as icp
 
 Param={
+  "streaming":False,
   "normal_radius":10,
   "feature_radius":15,
   "feature_threshold":10,
@@ -44,28 +46,22 @@ Param={
 }
 Config={
   "path":"recipe",
-  "solver":"o3d_solver",
+  "solver":"feature_solver",
+  "camera_frame_id":"camera",
   "base_frame_id":"base",
-  "calib_frame_id":"base",
   "align_frame_id":"camera/capture0",
-  "master_frame_id":"master0",
+  "master_frame_id":"camera/master0",
+  "capture_frame_id":"camera/capture0",
+  "track_frame_id":"camera/track0",
   "mesh":"/cropper/mesh" }
-Score={
-  "Tx":[],
-  "Ty":[],
-  "Tz":[],
-  "Qx":[],
-  "Qy":[],
-  "Qz":[],
-  "Qw":[] }
+Score={}
 
 def P0():
   return np.array([]).reshape((-1,3))
 
-def np2F(d):  #numpy to Floats
-  f=Floats()
-  f.data=np.ravel(d)
-  return f
+def cog(cloud):
+  dat=np.array(cloud.points)
+  return np.mean(dat,axis=0)
 
 def getRT(base,ref):
   try:
@@ -73,7 +69,7 @@ def getRT(base,ref):
     rospy.loginfo("cropper::getRT::TF lookup success "+base+"->"+ref)
     RT=tflib.toRT(ts.transform)
   except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
-    RT=None
+    RT=np.eye(4)
   return RT
 
 def learn_feat(pcd,param):
@@ -120,8 +116,54 @@ def learn_journal(pc,base,ofs,wid,align):
     else:
       print('searcher::learn_journal No journal')
 
+def getBC(key):
+  for tf in tfReg:
+    if tf.child_frame_id.startswith(key):
+      return tf
+  return None
+
+def repeat(func,dur):
+  tmr=rospy.Timer(rospy.Duration(0.5),func)
+  rospy.Timer(rospy.Duration(dur),lambda ev:tmr.shutdown(),oneshot=True)
+
 def cb_master(event):
-  if ModelPC2 is not None: pub_pc2.publish(ModelPC2)
+  mtf=getBC(Config["track_frame_id"])
+  if mtf is None:
+    print("No tf found",Config["track_frame_id"])
+    return
+  if Param["streaming"]:
+    mTc=getRT(Master_Frame_Id,Config["camera_frame_id"])
+  else:
+    mTc=getRT(Master_Frame_Id,Config["capture_frame_id"])
+  mtf.transform=tflib.fromRT(mTc.dot(cTs))
+  broadcaster.sendTransform(tfReg)
+  if ModelPC2 is not None:
+#    rospy.Timer(rospy.Duration(3.0),lambda ev:pub_pc2.publish(ModelPC2),oneshot=True)
+    repeat(lambda ev:pub_pc2.publish(ModelPC2),3)
+
+def addtfs(mtf,ofs):
+  global tfReg,mTg
+  bTm=tflib.toRT(mtf.transform)
+  mTb=np.linalg.inv(bTm)
+  cog=TransformStamped()
+  cog.header=copy.copy(mtf.header)
+  cog.header.frame_id=Master_Frame_Id
+  cog.child_frame_id=Master_Frame_Id+"/cog"
+  mTg=np.eye(4)
+  mTg[:3,3]=ofs
+  cog.transform=tflib.fromRT(mTg)
+  trac=TransformStamped()
+  trac.header=copy.copy(mtf.header)
+  trac.header.frame_id=Master_Frame_Id
+  trac.child_frame_id=Config["track_frame_id"]
+  if Param["streaming"]:
+    bTc=getRT(mtf.header.frame_id,Config["camera_frame_id"])
+    trac.transform=tflib.fromRT(mTb.dot(bTc))
+  else:
+    bTc=getRT(mtf.header.frame_id,Config["capture_frame_id"])
+    trac.transform=tflib.fromRT(mTb.dot(bTc))
+  tfReg=[mtf,cog,trac]
+  broadcaster.sendTransform(tfReg)
 
 def cb_save(msg):
   global Model,ModelPC2,tfReg,Master_Frame_Id
@@ -141,7 +183,7 @@ def cb_save(msg):
     pub_saved.publish(mFalse)
     print("searcher::cb_save No frame found")
     return
-  Master_Frame_Id=modPC2.header.frame_id+"/"+Config["master_frame_id"]
+  Master_Frame_Id=Config["master_frame_id"]
   tf.child_frame_id=Master_Frame_Id
   path=Config["path"]+"/"+Master_Frame_Id.replace('/','_')+".yaml"
   f=open(path,"w")
@@ -149,26 +191,22 @@ def cb_save(msg):
   f.close()
   modCloud=open3d_conversions.from_msg(modPC2)
   o3d.io.write_point_cloud(path.replace('.yaml','.ply'),modCloud,True,False)
-  trac=TransformStamped()
-  trac.header=copy.copy(tf.header)
-  trac.header.frame_id=Master_Frame_Id
-  trac.child_frame_id=Master_Frame_Id+"/solve0"
-  trac.transform=tflib.fromRT(np.eye(4))
-  tfReg=[tf,trac]
-  broadcaster.sendTransform(tfReg)
   Model=learn_feat(modCloud,Param)
 #  learn_rot(pcd,Param['rotate'],Param['icp_threshold'])
+  addtfs(tf,cog(modCloud))
   pub_saved.publish(mTrue)
-  ModelPC2=open3d_conversions.to_msg(Model,frame_id=trac.child_frame_id)
+  ModelPC2=open3d_conversions.to_msg(Model,frame_id=Config["track_frame_id"])
 #  ModelPC2.header.frame_id=trac.child_frame_id
-  pub_pc2.publish(ModelPC2)
+  cb_clear(True)
+#  pub_pc2.publish(ModelPC2)
 
 def cb_load(msg):
   global Model,ModelPC2,tfReg,Param,Master_Frame_Id
   tfReg=[]
 #load .tf files
   ls=os.listdir(Config["path"])
-  dottf=list(filter(lambda f:f.endswith(Config["master_frame_id"]+'.yaml'),ls))
+  dottf=list(filter(lambda f:f.endswith(Config["master_frame_id"].replace('/','_')+'.yaml'),ls))
+  print("searcher::cb_load",dottf)
   Master_Frame_Id=dottf[0].replace('_','/').replace('.yaml','')
   path=Config["path"]+"/"+dottf[0]
   try:
@@ -180,6 +218,12 @@ def cb_load(msg):
     return
   yd=yaml.load(f,Loader=yaml.SafeLoader)
   f.close()
+
+  modCloud=o3d.io.read_point_cloud(path.replace('.yaml','.ply'))
+  Model=learn_feat(modCloud,Param)
+#  learn_rot(pcd,Param['rotate'],Param['icp_threshold'])
+#  learn_journal(pcd,Param["cutter"]["base"],Param["cutter"]["offset"],Param["cutter"]["width"],Param["cutter"]["align"])
+
   trf=tflib.dict2tf(yd)
   tf=TransformStamped()
   tf.header.stamp=rospy.Time.now()
@@ -187,82 +231,94 @@ def cb_load(msg):
   tf.child_frame_id=Master_Frame_Id
   tf.transform=trf
 
-  trac=TransformStamped()
-  trac.header=copy.copy(tf.header)
-  trac.header.frame_id=tf.child_frame_id
-  trac.child_frame_id=tf.child_frame_id+"/solve0"
-  trac.transform=tflib.fromRT(np.eye(4))
+  addtfs(tf,cog(modCloud))
 
-  tfReg=[tf,trac]
-  broadcaster.sendTransform(tfReg)
-
-  modCloud=o3d.io.read_point_cloud(path.replace('.yaml','.ply'))
-  Model=learn_feat(modCloud,Param)
-#  learn_rot(pcd,Param['rotate'],Param['icp_threshold'])
-#  learn_journal(pcd,Param["cutter"]["base"],Param["cutter"]["offset"],Param["cutter"]["width"],Param["cutter"]["align"])
   pub_loaded.publish(mTrue)
-  ModelPC2=open3d_conversions.to_msg(Model,frame_id=trac.child_frame_id)
-  pub_pc2.publish(ModelPC2)
+  ModelPC2=open3d_conversions.to_msg(Model,frame_id=Config["track_frame_id"])
+  cb_clear(True)
+#  pub_pc2.publish(ModelPC2)
 
 def cb_score():
-  global Score
-  score=Float32MultiArray()
-  score.layout.data_offset=0
-  for n,sc in enumerate(Score):
-    score.layout.dim.append(MultiArrayDimension())
-    score.layout.dim[n].label=sc
-    score.layout.dim[n].size=len(Score[sc])
-    score.layout.dim[n].stride=1
-    score.data.extend(Score[sc])
-  pub_score.publish(score)
-  pub_Y2.publish(mTrue)
+  pass
+
+def pub_stats(result):
+  fitness=Float64()
+  fitness.data=result["fitness"]
+  pub_fitness.publish(fitness)
+  rmse=Float64()
+  rmse.data=result["rmse"]
+  pub_rmse.publish(rmse)
+  rep={}
+  rep["fitness"]=result["fitness"]
+  rep["rmse"]=result["rmse"]
+  pub_report.publish(str(rep))
 
 def cb_solve(msg):
-  global Score,Param
-  for key in Score: Score[key]=[]
+  global Param
   rospy.Timer(rospy.Duration(0.01),cb_solve_do,oneshot=True)
   Param.update(rospy.get_param("~param"))
 
+def pub_moving(RT):
+  rep={}
+  vz=np.ravel(RT[:3,2]) #basis vector Z
+  vz=vz/np.linalg.norm(vz)
+  rep["azimuth"]=np.arccos(np.dot(vz,np.array([0,0,1])))*180/np.pi
+  vr=R.from_matrix(RT[:3,:3]).as_rotvec(degrees=True)
+  rep["rotation"]=vr[2]
+  rep["Tx"]=RT[0,3]
+  rep["Ty"]=RT[1,3]
+  rep["Tz"]=RT[2,3]
+  rospy.Timer(rospy.Duration(0.5),lambda ev:pub_report.publish(str(rep)),oneshot=True)
+
 def cb_solve_do(msg):
-  global Score
+  global cTs
   Scene=open3d_conversions.from_msg(ScenePC2)
+  cTs=np.eye(4)
+  result=None
   if Param["feature_fitness"]>0.0:
     result=solver.solve(Scene,Param)
     if result["fitness"]<Param["feature_fitness"]:
       print("searcher Feature match fitness is low",result["fitness"])
+      pub_stats(result)
       pub_Y2.publish(mFalse)
       return
-    mTs=result["transform"]
-  else:
-    mTs=np.eye(4)
-  result=icp.solve(Model,Scene,Param,mTs)
-  if result["fitness"]<Param["icp_fitness"]:
-    print("searcher ICP fitness is low",result["fitness"])
-    pub_Y2.publish(mFalse)
-    return
-  mTs=result["transform"]
-  tfReg[-1].transform=tflib.fromRT(mTs)    #repub tf ../solve0
-  broadcaster.sendTransform(tfReg)
-  rospy.Timer(rospy.Duration(0.1),cb_master,oneshot=True)
+    cTs=result["transform"]
 
-  tf=tflib.fromRT(mTs)
-  print('searcher::cb_solve_do Solve',mTs)
+  if Param["icp_fitness"]>0.0:
+    result=icp.solve(Model,Scene,Param,cTs)
+    if result["fitness"]<Param["icp_fitness"]:
+      print("searcher ICP fitness is low",result["fitness"])
+      pub_stats(result)
+      pub_Y2.publish(mFalse)
+      return
+    cTs=result["transform"]
 
-  Score["Tx"].append(tf.translation.x)
-  Score["Ty"].append(tf.translation.y)
-  Score["Tz"].append(tf.translation.z)
-  Score["Qx"].append(tf.rotation.x)
-  Score["Qy"].append(tf.rotation.y)
-  Score["Qz"].append(tf.rotation.z)
-  Score["Qw"].append(tf.rotation.w)
+  if result is not None: pub_stats(result)
+  cb_master(True)
 
-  for key in result:
-    if type(result[key]) is float:
-      print("searcher add score ",key,result[key])
-      if not key in Score:
-        Score[key]=[]
-      Score[key].append(result[key])
-  cb_score()
+  mTc=getRT(Master_Frame_Id,Config["capture_frame_id"])
+  mTtg=mTc.dot(cTs).dot(mTg)
+#  print('searcher::cb_solve_do Solve',np.linalg.inv(mTg).dot(mTtg))
+
+  pub_moving(np.linalg.inv(mTg).dot(mTtg))
+  tf=tflib.fromRT(mTtg)
+  array=PoseArray()
+  array.header.stamp=rospy.Time.now()
+  array.header.frame_id=Config["master_frame_id"]
+  pose=Pose()
+  pose.position.x=tf.translation.x
+  pose.position.y=tf.translation.y
+  pose.position.z=tf.translation.z
+  pose.position.x=tf.translation.x
+  pose.orientation.x=tf.rotation.x
+  pose.orientation.y=tf.rotation.y
+  pose.orientation.z=tf.rotation.z
+  pose.orientation.w=tf.rotation.w
+  array.poses.append(pose)
+
+#  rospy.Timer(rospy.Duration(5.0),lambda ev:pub_poses.publish(array),oneshot=True)
+  repeat(lambda ev:pub_poses.publish(array),3)
+  pub_Y2.publish(mTrue)
 
 def cb_pc2(msg):
   global ScenePC2
@@ -270,34 +326,25 @@ def cb_pc2(msg):
   ScenePC2=msg
 
 def cb_clear(msg):
-  global mTs
-  mTs=np.eye(4)
-  tfReg[-1].transform=tflib.fromRT(mTs)  #.child_frame_id+"/solve0"
-  broadcaster.sendTransform(tfReg)
-  rospy.Timer(rospy.Duration(0.1),cb_master,oneshot=True)
+  global cTs
+  cTs=np.eye(4)
+  cb_master(True)
 
 def cb_scan(msg):
-  global Scene,mTs,Param
+  global Scene,cTs,Param
   try:
     Param.update(rospy.get_param("~param"))
   except Exception as e:
     print("get_param exception:",e.args)
   if Param["streaming"] and ScenePC2 is not None and Model is not None:
     Scene=open3d_conversions.from_msg(ScenePC2)
-    result=icp.solve(Model,Scene,Param,mTs)
-    if result["fitness"]>Param["feature_fitness"]:
-      mTs=result["transform"]
-      tfReg[-1].transform=tflib.fromRT(mTs)
-      broadcaster.sendTransform(tfReg)
-      rospy.Timer(rospy.Duration(0.1),cb_master,oneshot=True)
+    result=icp.solve(Model,Scene,Param,cTs)
+    if result["fitness"]>Param["icp_fitness"]:
+      cTs=result["transform"]
+      cb_master(True)
     else:
       cb_clear(None)
-    fitness=Float64()
-    fitness.data=result["fitness"]
-    pub_fitness.publish(fitness)
-    rmse=Float64()
-    rmse.data=result["rmse"]
-    pub_rmse.publish(rmse)
+    pub_stats(result)
   rospy.Timer(rospy.Duration(0.5),cb_scan,oneshot=True)
   return
 
@@ -333,7 +380,7 @@ pub_pc2=rospy.Publisher("~out/pc2",PointCloud2,queue_size=1)
 pub_Y2=rospy.Publisher("~solved",Bool,queue_size=1)
 pub_saved=rospy.Publisher("~saved",Bool,queue_size=1)
 pub_loaded=rospy.Publisher("~loaded",Bool,queue_size=1)
-pub_score=rospy.Publisher("~score",Float32MultiArray,queue_size=1)
+pub_poses=rospy.Publisher("~poses",PoseArray,queue_size=1)
 pub_report=rospy.Publisher("/report",String,queue_size=1)
 pub_fitness=rospy.Publisher("~fitness",Float64,queue_size=1)
 pub_rmse=rospy.Publisher("~rmse",Float64,queue_size=1)
@@ -361,7 +408,8 @@ ScenePC2=None  #as ROS
 Model=None    #as O3D
 ModelPC2=None #as PointCloud2
 
-mTs=np.eye(4) #model to scene conversion
+cTs=np.eye(4) #model to scene conversion in capture cordinate
+mTg=np.eye(4) #master to COG
 tfReg=[]      #as TransformStamped
 Master_Frame_Id=""
 

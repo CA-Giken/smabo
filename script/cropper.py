@@ -30,12 +30,14 @@ Config={
   "base_frame_id":"world",
   "source_frame_id":"camera/capture",
   "frame_id":"camera/capture0",
-  "capture_frame_id":"camera"
+  "capture_frame_id":"camera",
+  "streaming_frame_id":"camera"
 }
 
 Pcat=None
 Tcapt=0
 Report={}
+Reqcount=0
 
 def P0():
   return np.array([]).reshape((-1,3))
@@ -83,18 +85,9 @@ def arrange(pc,n):
 def cb_redraw(msg):
   global Pcat,Pcrop
   print("redraw",len(Pcrop.points))
-  pc2=open3d_conversions.to_msg(Pcrop,frame_id=Config["frame_id"])
+  pc2=open3d_conversions.to_msg(Pcrop,frame_id=Config["streaming_frame_id"] if Reqcount==0 else Config["frame_id"])
   pub_pc2.publish(pc2)
   return
-  mesh=Param["mesh"]
-  if mesh>0 and len(Pcat.points)>0:
-    result=o3d.pipelines.registration.evaluate_registration(Pcat,Pcrop,mesh)
-    Pcat.points=Pcat.points[result.correspondence_set[0]]
-    raw=open3d_conversions.to_msg(Pcat,frame_id=Config["frame_id"])
-    pub_raw.publish(raw)
-  else:
-    pub_raw.publish(pc2)
-
 
 def merge():
   global Pcat
@@ -151,11 +144,16 @@ def crop():
   return
 
 def cb_pc2(msg):
-  global srcArray,Tcapt,Report
+  global srcArray,Tcapt,Pcat,Reqcount
   pc=open3d_conversions.from_msg(msg)
-  srcArray.append(pc)
   pub_report.publish(str({"pcount":sum(len(pc.points) for pc in srcArray)}))
-  merge()
+  if Reqcount>len(srcArray):
+    srcArray.append(pc)
+    merge()
+  else:
+    Pcat=pc
+    srcArray=[]
+    Reqcount=0
   crop()
   rospy.Timer(rospy.Duration(0.1),lambda msg:pub_capture.publish(mTrue),oneshot=True)
   return
@@ -174,9 +172,10 @@ def cb_param(msg):
   return
 
 def cb_clear(msg):
-  global srcArray,tfArray,Pcat,Pcrop
+  global srcArray,tfArray,Pcat,Pcrop,Reqcount
   srcArray=[]
   tfArray=[]
+  Reqcount=0
   keeps=Config["capture_frame_id"]
   if type(keeps) is str: keeps=[keeps]
   try:
@@ -196,7 +195,7 @@ def cb_clear(msg):
   pub_clear.publish(mTrue)
 
 def cb_capture(msg):
-  global tfArray,Tcapt,Report
+  global tfArray,Tcapt,Report,Reqcount
   keeps=Config["capture_frame_id"]
   if type(keeps) is str: keeps=[keeps]
   try:
@@ -210,7 +209,9 @@ def cb_capture(msg):
     broadcaster.sendTransform(tfArray)
   except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
     rospy.loginfo("cropper::capture::TF lookup failure world->"+keep)
-  if pub_relay is not None: pub_relay.publish(mTrue)
+  if pub_relay is not None:
+    pub_relay.publish(mTrue)
+    Reqcount=len(srcArray)
   Tcapt=time.time()
 
 def cb_ansback(msg):

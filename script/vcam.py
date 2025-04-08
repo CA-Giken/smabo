@@ -14,31 +14,26 @@ from std_msgs.msg import Bool
 from geometry_msgs.msg import Transform
 from sensor_msgs.msg import PointCloud2
 from smabo import open3d_conversions
-from rovi_utils import tflib
-from rovi.msg import Floats
-from rospy.numpy_msg import numpy_msg
+from smabo import tflib
 
 Config={
-  "source_frame_id":"world",
-  "target_frame_id":"camera",
-  "trim_x":300,
-  "trim_y":250,
-  "trim_far":600,
-  "trim_near":380,
-  "view":[[-10,0,0]],
+  "camera_frame_id":"camera",
+  "trim_x":2000,
+  "trim_y":2000,
+  "trim_far":2000,
+  "trim_near":100,
+  "view":[[0,0,0]],
   "view_r":50000,
   "hidden":True,
-  "folder":"mesh"
+  "ply": ['sma-lab2','mesh/test{:02d}','camera'],
 }
 Param={
-  "mesh":1,
+  "streaming":False,
+  "mesh":1.0
+}
+Plocal={
   "frame":0
 }
-
-def np2F(d):  #numpy to Floats
-  f=Floats()
-  f.data=np.ravel(d)
-  return f
 
 def getRT(base,ref):
   try:
@@ -46,26 +41,14 @@ def getRT(base,ref):
     rospy.loginfo("getRT::TF lookup success "+base+"->"+ref)
     RT=tflib.toRT(ts.transform)
   except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
-    RT=None
+    RT=np.eye(4)
   return RT
 
-def cb_ps(msg):
-  global Scene
-  Scene=open3d_conversions.from_msg(msg)
-  print("vcam sub scene",len(Scene.points))
-  return
-
-def cb_capture(msg):
-  try:
-    Config.update(rospy.get_param("/config/vcam"))
-  except Exception as e:
-    print("get_param exception:",e.args)
-  RT=getRT(Config["target_frame_id"],Config["source_frame_id"])
-  scn0=np.array(Scene.points)
-  scn_1=np.vstack((scn0.T,np.ones(len(scn0))))
-  scn_1=RT.dot(scn_1)
-  scn=scn_1[:3].T
-  scn=scn[np.abs(np.ravel(scn_1[1]))<Config["trim_y"]/2]
+def pubpcd():
+  RT=getRT(Config["camera_frame_id"],Config["ply"][2])
+  pcd=copy.deepcopy(Cloud)
+  pcd.transform(RT)
+  scn=np.array(pcd.points)
   zp=np.ravel(scn.T[2])
   scn=scn[zp<Config["trim_far"]]
   yp=np.ravel(scn.T[1])
@@ -75,69 +58,69 @@ def cb_capture(msg):
   zp=np.ravel(scn.T[2])
   scn=scn[np.abs(xp/zp)<Config["trim_x"]/Config["trim_far"]]
   print("vcam trimmed",scn.shape)
+#  pcd=o3d.geometry.PointCloud()
+  pcd.clear()
   if len(scn)<1000:
     print("vcam points too few, abort hidden...",len(scn))
-    pub_ps.publish(np2F(scn))
-    pub_done.publish(mTrue)
-    return  
-  pcd=o3d.geometry.PointCloud()
-  pcd.points=o3d.utility.Vector3dVector(scn)
-  if Config["hidden"]:
-    pset=set([])
-    for v in Config["view"]:
-      _, pm=pcd.hidden_point_removal(v,Config["view_r"])
-      pset=pset.union(set(pm))
-    plst=np.array(list(pset))
-    pcd=pcd.select_by_index(plst)
-  pc2=open3d_conversions.to_msg(pcd,frame_id=Config["target_frame_id"])
+  else:
+    pcd.points=o3d.utility.Vector3dVector(scn)
+    if Config["hidden"]:
+      pset=set([])
+      for v in Config["view"]:
+        _, pm=pcd.hidden_point_removal(v,Config["view_r"])
+        pset=pset.union(set(pm))
+      plst=np.array(list(pset))
+      pcd=pcd.select_by_index(plst)
+  pc2=open3d_conversions.to_msg(pcd,frame_id=Config["camera_frame_id"])
   pub_pc2.publish(pc2)
-  pub_done.publish(mTrue)
 
-def getFolder(datapath,n):
-  ls=os.listdir(datapath)
-  sel=list(filter(lambda f:f.endswith('.ply'),ls))
-  sel.sort()
-  print("getFolders",sel)
-  if n>=len(sel):
-    print("vcam::frame out of folders")
-    return None
-  return sel[n]
-
-def cb_load(msg):
+def loadpcd():
+  global Param,Plocal,Cloud
+  try:
+    Plocal.update(rospy.get_param("/vcam"))
+  except Exception as e:
+    print("get_param exception:",e.args)
   try:
     Param.update(rospy.get_param("/sensors"))
   except Exception as e:
     print("get_param exception:",e.args)
-  path=thispath+'/'+Config['folder']
-  frame=Param["frame"]
-  file=getFolder(path,frame)
-  if file is None: return
-  pcd=o3d.io.read_point_cloud(path+'/'+file)
-  print("vcam load ply",file,len(pcd.points))
-  dwnpc=pcd.voxel_down_sample(Param["mesh"])
-  pc2=open3d_conversions.to_msg(dwnpc,frame_id=Config["target_frame_id"])
-  pub_pc2.publish(pc2)
-  pub_floats.publish(np2F(dwnpc.points))
+  pack= subprocess.getoutput("rospack find "+Config["ply"][0])
+  frame=int(Plocal['frame'])
+  path= pack+'/'+Config["ply"][1].format(frame)+'.ply'
+  print("vcam load",path)
+  Cloud=o3d.io.read_point_cloud(path)
+  print("vcam load ply",path,len(Cloud.points))
+  mesh=float(Param["mesh"])
+  if mesh>0:
+    Cloud=Cloud.voxel_down_sample(mesh)
+
+def cb_capture(msg):
+  loadpcd()
+  pubpcd()
   pub_done.publish(mTrue)
-  rospy.set_param("/sensors/frame",frame+1)
+  rospy.set_param("/vcam/frame",int(Plocal["frame"])+1)
+
+def cb_scan(msg):
+  global Param
+  try:
+    Param.update(rospy.get_param("/sensors"))
+  except Exception as e:
+    print("get_param exception:",e.args)
+  if Param["streaming"]:
+    pubpcd()
+  rospy.Timer(rospy.Duration(1),cb_scan,oneshot=True)
+  return
 
 ########################################################
 rospy.init_node("vcam",anonymous=True)
-thispath= subprocess.getoutput("rospack find smabo")
 ###Load params
 try:
   Config.update(rospy.get_param("/config/vcam"))
 except Exception as e:
   print("get_param exception:",e.args)
-if "ws" in Config:
-  thispath= subprocess.getoutput("rospack find "+Config["ws"])
 ###Topics
-rospy.Subscriber("~scene_pc2",PointCloud2,cb_ps)
-#rospy.Subscriber("/sensors/X1",Bool,cb_capture) #emurates capture pcd(:world) and publish
-rospy.Subscriber("/sensors/X1",Bool,cb_load)
-rospy.Subscriber("/sensors/X10",Bool,cb_load)   #loads pcd(:camera) from file and publish
+rospy.Subscriber("/sensors/X1",Bool,cb_capture)
 pub_pc2=rospy.Publisher("/sensors/pc2",PointCloud2,queue_size=1)
-pub_floats=rospy.Publisher("/sensors/floats",numpy_msg(Floats),queue_size=1)
 pub_done=rospy.Publisher("/sensors/Y1",Bool,queue_size=1)
 ###Globals
 mTrue=Bool();mTrue.data=True
@@ -147,6 +130,9 @@ listener=tf2_ros.TransformListener(tfBuffer)
 
 #if __name__=="__main__":
 #
+
+loadpcd()
+rospy.Timer(rospy.Duration(3),cb_scan,oneshot=True)
 
 try:
   rospy.spin()
