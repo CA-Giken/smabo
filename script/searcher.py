@@ -47,7 +47,6 @@ Param={
 Config={
   "path":"recipe",
   "solver":"feature_solver",
-  "camera_frame_id":"camera",
   "base_frame_id":"base",
   "align_frame_id":"camera/capture0",
   "master_frame_id":"camera/master0",
@@ -66,7 +65,6 @@ def cog(cloud):
 def getRT(base,ref):
   try:
     ts=tfBuffer.lookup_transform(base,ref,rospy.Time())
-    rospy.loginfo("cropper::getRT::TF lookup success "+base+"->"+ref)
     RT=tflib.toRT(ts.transform)
   except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
     RT=np.eye(4)
@@ -127,15 +125,15 @@ def repeat(func,dur):
   rospy.Timer(rospy.Duration(dur),lambda ev:tmr.shutdown(),oneshot=True)
 
 def cb_master(event):
-  mtf=getBC(Config["track_frame_id"])
-  if mtf is None:
+  trac=getBC(Config["track_frame_id"])
+  if trac is None:
     print("No tf found",Config["track_frame_id"])
     return
-  if Param["streaming"]:
-    mTc=getRT(Master_Frame_Id,Config["camera_frame_id"])
+  if ScenePC2 is not None:
+    mTc=getRT(Master_Frame_Id,ScenePC2.header.frame_id)
+    trac.transform=tflib.fromRT(mTc.dot(cTs))
   else:
-    mTc=getRT(Master_Frame_Id,Config["capture_frame_id"])
-  mtf.transform=tflib.fromRT(mTc.dot(cTs))
+    trac.transform=tflib.fromRT(np.eye(4))
   broadcaster.sendTransform(tfReg)
   if ModelPC2 is not None:
 #    rospy.Timer(rospy.Duration(3.0),lambda ev:pub_pc2.publish(ModelPC2),oneshot=True)
@@ -156,12 +154,11 @@ def addtfs(mtf,ofs):
   trac.header=copy.copy(mtf.header)
   trac.header.frame_id=Master_Frame_Id
   trac.child_frame_id=Config["track_frame_id"]
-  if Param["streaming"]:
-    bTc=getRT(mtf.header.frame_id,Config["camera_frame_id"])
+  if ScenePC2 is not None:
+    bTc=getRT(mtf.header.frame_id,ScenePC2.header.frame_id)
     trac.transform=tflib.fromRT(mTb.dot(bTc))
   else:
-    bTc=getRT(mtf.header.frame_id,Config["capture_frame_id"])
-    trac.transform=tflib.fromRT(mTb.dot(bTc))
+    trac.transform=tflib.fromRT(np.eye(4))
   tfReg=[mtf,cog,trac]
   broadcaster.sendTransform(tfReg)
 
@@ -326,8 +323,9 @@ def cb_pc2(msg):
   ScenePC2=msg
 
 def cb_clear(msg):
-  global cTs
+  global cTs,ScenePC2
   cTs=np.eye(4)
+  ScenePC2=None
   cb_master(True)
 
 def cb_scan(msg):
@@ -339,6 +337,7 @@ def cb_scan(msg):
   if Param["streaming"] and ScenePC2 is not None and Model is not None:
     Scene=open3d_conversions.from_msg(ScenePC2)
     result=icp.solve(Model,Scene,Param,cTs)
+    print("searcher::scan",result["fitness"])
     if result["fitness"]>Param["icp_fitness"]:
       cTs=result["transform"]
       cb_master(True)

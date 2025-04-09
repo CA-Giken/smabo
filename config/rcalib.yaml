@@ -1,95 +1,14 @@
 config:
-  vcam:
-    height: 1080
-    width: 1080
-    wx: 600
-    wy: 600  #wx*height/width
-    wd: 600
-  scene:
-    meshes:
-    - ['package://vcam3d/mesh/circle.stl','tool1',[0.8,0.6,0.6]]
-    - ['package://vcam3d/mesh/YCAM3D.stl','camera',[0.8,0.8,0.8]]
-    - ['package://vcam3d/mesh/ThreeFinger.stl','tool0_controller',[0.0,0.6,1.0]]
-  searcher:
-    solver: "ransac_solver"
-  rsocket:
-    robot_ip: "127.0.0.1"
   rcalib:
     on_hand: False
-    board_frame_id: camera/master0/solve0
-    camera_frame_id: camera
-    flange_frame_id: tool0_controller
-    mount_frame_id: base
-
-cropper:
-  streaming: True
-  ladw: 0
-  mesh: 0
+    board_frame_id: "camera/track0"
+    camera_frame_id: "camera"
+    flange_frame_id: "tool0_controller"
+    mount_frame_id: "base"
 
 searcher:
-  streaming: True
+  streaming: true
 
-config_tf:
-  base:
-    parent_frame_id: world
-    transform:
-      rotation:
-        x: 0
-        y: 0
-        z: 0
-        w: 1
-      translation:
-        x: 0
-        y: 0
-        z: 0
-  camera:
-    parent_frame_id: base
-    transform:
-      rotation:
-        w: 0.0
-        x: 0.707
-        y: 0.707
-        z: 0.0
-      translation:
-        x: 0.
-        y: -500.
-        z: 1300.
-
-  tool0_controller:
-    parent_frame_id: base
-    transform:
-      rotation:
-        x: 0
-        y: 0
-        z: 0
-        w: 1
-      translation:
-        x: 0
-        y: 0
-        z: 0
-  flange:
-    parent_frame_id: tool0_controller
-    transform:
-      rotation:
-        x: 0
-        y: 0
-        z: 0
-        w: 1
-      translation:
-        x: 0
-        y: 0
-        z: 0
-
-  tool1:
-    parent_frame_id: flange
-    transform:
-      rotation:
-        x: 1
-        y: 0
-        z: 0
-        w: 0
-      translation:
-        x: 0
-        y: 0
-        z: 500
+sensors:
+  streaming: true
 

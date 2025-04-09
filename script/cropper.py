@@ -61,10 +61,9 @@ def nf(pc):
 def getRT(base,ref):
   try:
     ts=tfBuffer.lookup_transform(base,ref,rospy.Time())
-    rospy.loginfo("cropper::getRT::TF lookup success "+base+"->"+ref)
     RT=tflib.toRT(ts.transform)
   except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
-    RT=None
+    RT=np.eye(4)
   return RT
 
 def arrange(pc,n):
@@ -103,7 +102,6 @@ def zsort(pc,down=False):
   npc=np.array(pc.points)
   nd=np.ravel(npc.T[2].argsort())
   if down: nd=nd[::-1]
-  print("zsort",nd)
   pcc=o3d.geometry.PointCloud()
   pcc.points=o3d.utility.Vector3dVector(npc[nd])
   return pcc
@@ -117,7 +115,6 @@ def crop():
     Pcrop=nf(Pcrop)
 #Sort points
   pcc=zsort(Pcrop)
-  print("zsort",len(pcc.points))
   if Param["ladC"]>0 and len(pcc.points)>Param["ladC"]:
     Pcrop=o3d.geometry.PointCloud()
     Pcrop.points=pcc.points[:Param["ladC"]]
@@ -139,7 +136,6 @@ def crop():
       Pcrop.points=pcc.points[:Param["ladW"]]
 #back to camera coordinate
     Pcrop.transform(np.linalg.inv(RT))
-    rospy.loginfo("ladle done")
   cb_redraw(True)
   return
 

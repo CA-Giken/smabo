@@ -38,7 +38,6 @@ Plocal={
 def getRT(base,ref):
   try:
     ts=tfBuffer.lookup_transform(base,ref,rospy.Time())
-    rospy.loginfo("getRT::TF lookup success "+base+"->"+ref)
     RT=tflib.toRT(ts.transform)
   except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
     RT=np.eye(4)
