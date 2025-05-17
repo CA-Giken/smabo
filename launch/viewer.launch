@@ -1,26 +1,10 @@
 <launch>
   <rosparam command="load" file="$(find smabo)/config/viewer.yaml" />
-  <node pkg="rovi" type="floats2pc" name="" args="camera">
-    <remap from="floats" to="/sensors/floats" />
-    <remap from="pc" to="/sensors/pc" />
-  </node>
-  <node pkg="rovi" type="floats2pc" name="" args="camera/capture0">
-    <remap from="floats" to="/crop/floats" />
-    <remap from="pc" to="/scene/surface/pc" />
-  </node>
-  <node pkg="rovi" type="floats2pc" name="" args="camera/master0">
-    <remap from="floats" to="/master/surface/floats" />
-    <remap from="pc" to="/master/surface/pc" />
-  </node>
-  <node pkg="rovi" type="floats2pc" name="" args="camera/capture0/solve0">
-    <remap from="floats" to="/master/surface/floats" />
-    <remap from="pc" to="/master/surface/pc0" />
-  </node>
   <node pkg="rtk_tools" type="report.py" name="" output="screen">
     <remap from="/report/update" to="/request/capture" />
     <remap from="/report/complete" to="/response/solve" />
   </node>
 
-  <node pkg="rovi_industrial" type="ycam3.py" name="" />
+  <node pkg="smabo" type="ycam3.py" name="" />
   <node pkg="rviz" type="rviz" name="" args="-d $(find smabo)/main.rviz" />
 </launch>

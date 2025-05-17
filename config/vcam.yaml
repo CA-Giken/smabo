@@ -1,7 +1,11 @@
 config:
   vcam:
-    ws: smabo
-    model: "mesh/scn.ply"
+    target_frame_id: "camera"
+    trim_x: 2000
+    trim_y: 2000
+    trim_far: 2000
+    trim_near: 500
+    ply: ['vcam3d','mesh/ThreeFinger','tool0_controller']
 sensors:
   frame: 0
-
+  streaming: true

@@ -13,15 +13,20 @@ config:
       lit: "#FF7700"
       unlit: "#888888"
       mask: "#222222"
-    launch_vcam:
-      label: "仮想カメラ"
-      package: smabo
-      file: vcam.launch
-#      auto: 1
     launch_cam:
       label: "カメラ"
       package: smabo
       file: cam.launch
+#      auto: 1
+    launch_vcam:
+      label: "仮想CAM"
+      package: smabo
+      file: vcam.launch
+#      auto: 1
+    launch_fcam:
+      label: "再現CAM"
+      package: smabo
+      file: fcam.launch
 #      auto: 1
 #    launch_rsock:
 #      label: "ロボット"
@@ -46,6 +51,10 @@ config:
       package: smabo
       file: viewer.launch
 #     auto: 10
+    launch_rcalib:
+      label: "キャリブ"
+      package: smabo
+      file: rcalib.launch
 
     indicator1:
       label: "CAM"

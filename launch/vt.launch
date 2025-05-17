@@ -17,7 +17,7 @@
   <node pkg="smabo" type="searcher.py" name="searcher" args="path:=$(find smabo)/recipe" output="screen">
     <remap from="~config" to="/config/searcher" />
     <remap from="~param" to="/searcher" />
-    <remap from="~in/pc2" to="/sensors/pc2" />
+    <remap from="~in/pc2" to="/crop/pc2" />
     <remap from="~out/pc2" to="/master/pc2" />
     <remap from="~clear" to="/request/clear" />
     <remap from="~load" to="/request/model_load" />
@@ -27,10 +27,10 @@
     <remap from="~solve" to="/request/solve" />
     <remap from="~solved" to="/searcher/solved" />
     <remap from="~redraw" to="/request/redraw" />
-    <remap from="~score" to="/searcher/score" />
+    <remap from="~poses" to="/searcher/poses" />
     <remap from="~stat" to="/searcher/stat" />
   </node>
-  <node pkg="smabo" type="picker.py" name="" output="screen">
+<!--  <node pkg="smabo" type="picker.py" name="" output="screen">
     <remap from="~config" to="/config/picker" />
     <remap from="~param" to="/picker" />
     <remap from="~clear" to="/request/clear" />
@@ -40,5 +40,5 @@
     <remap from="~redraw" to="/request/redraw" />
     <remap from="~check" to="/picker/solved" />
     <remap from="~checked" to="/response/solve" />
-  </node>
+  </node> -->
 </launch>
