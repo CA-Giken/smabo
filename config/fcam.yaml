@@ -1,0 +1,8 @@
+config:
+  vcam:
+    target_frame_id: "camera"
+    ply: ['smabo','mesh/test{:02d}','camera']
+sensors:
+  frame: 0
+  streaming: false
+

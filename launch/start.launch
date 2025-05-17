@@ -6,7 +6,7 @@
     <remap from="~failed" to="/response/recipe_load" />
     <remap from="~opened" to="/response/recipe_open" />
   </node>
-  <node pkg="rovi_utils" type="config_tf.py" name="config_tf">
+  <node pkg="smabo" type="config_tf.py" name="config_tf">
     <remap from="reload/config_tf" to="/request/redraw" />
   </node>
 </launch>

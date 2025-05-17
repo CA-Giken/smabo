@@ -14,7 +14,7 @@ from std_msgs.msg import String
 from geometry_msgs.msg import Transform
 from geometry_msgs.msg import TransformStamped
 from std_msgs.msg import Float32MultiArray
-from rovi_utils import tflib
+from smabo import tflib
 
 Config={
   "multiplex":2,
@@ -98,7 +98,7 @@ def cb_stats():
     Param.update(rospy.get_param("~param"))
   except Exception as e:
     print("get_param exception:",e.args)
-  rospy.loginfo("picker::fitness "+str(Stats["fitness"]))
+  print("picker::cb_stats fitness "+str(Stats["fitness"]))
   wfit=np.where(Stats["fitness"]>Param["fitness"]["min"])
   if len(wfit[0])>0:
     amin=np.argmin(Stats["Tz"][wfit])
@@ -140,7 +140,7 @@ def cb_score(msg):
     if key in Stats: Stats[key]=np.concatenate((Stats[key],val),axis=None)
     else: Stats[key]=val
   print('picker::cb_score::Stats',Stats)
-  if len(set(Stats["proc"]))>=Config["multiplex"]: cb_stats()
+  cb_stats()
 
 def cb_clear(msg):
   global Stats
@@ -210,6 +210,8 @@ mFalse=Bool();mFalse.data=False
 tfBuffer=tf2_ros.Buffer()
 listener=tf2_ros.TransformListener(tfBuffer)
 broadcaster=tf2_ros.StaticTransformBroadcaster()
+
+rospy.Timer(rospy.Duration(3.0),lambda ev: cb_clear(None),oneshot=True)
 
 try:
   rospy.spin()

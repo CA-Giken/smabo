@@ -1,24 +1,7 @@
 <launch>
   <rosparam command="load" file="$(find smabo)/config/rcalib.yaml" />
   <rosparam command="load" file="$(find smabo)/rcalib/param.yaml" />
-<!--broadcast TF-->
-  <node pkg="rovi_utils" type="config_tf.py" name="config_tf">
-    <remap from="reload/config_tf" to="/request/redraw" />
-  </node>
-
 <!--nodes for robot calib-->
-  <node pkg="smabo" type="searcher.py" name="" args="path:=$(find smabo)/rcalib" output="screen">
-    <remap from="~config" to="/config/searcher" />
-    <remap from="~param" to="/searcher" />
-    <remap from="~in/pc2" to="/camera/pc2" />
-    <remap from="~out/pc2" to="/searcher/pc2" />
-    <remap from="~fitness" to="/searcher/fitness" />
-    <remap from="~rmse" to="/searcher/rmse" />
-    <remap from="~clear" to="/request/clear" />
-    <remap from="~save" to="/request/model_save" />
-    <remap from="~saved" to="/response/model_save" />
-    <remap from="~redraw" to="/request/redraw" />
-  </node>
   <node pkg="smabo" type="rcalib.py" name="" output="screen">
     <remap from="~config" to="/config/rcalib" />
     <remap from="~clear" to="/request/clear" />
@@ -31,37 +14,11 @@
     <remap from="~Terror" to="/rcalib/Terror" />
     <remap from="~Rerror" to="/rcalib/Rerror" />
   </node>
-
-<!--building cyber space with RViz-->
-  <node pkg="vcam3d" type="env.py" name="environment" />
-  <node ns="camera" pkg="vcam3d" type="vcam.py" name="">
-    <remap from="~config" to="/config/vcam" />
-    <remap from="~param" to="/camera" />
-    <remap from="~X1" to="/camera/X1" />
-    <remap from="~Y1" to="/camera/Y1" />
-    <remap from="~pc2" to="/camera/pc2" />
-  </node>
-  <node pkg="vcam3d" type="hand.py" name="" />
-  <node ns="camera" pkg="rostopic" name="camera_info" type="rostopic"
-      args="pub camera_info sensor_msgs/CameraInfo
-     '{header: {seq: 0, stamp: {secs: 0, nsecs: 0}, frame_id: 'camera'},
-      height: 480, width: 640, distortion_model: 'plumb_bob',
-      D: [0],
-      K: [2070, 0.0, 451,
-          0.0, 2070, 477,
-          0.0, 0.0, 1.0],
-      R: [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0],
-      P: [1035, 0.0, 226, 0.0,
-          0.0, 1035, 224, 0.0,
-          0.0, 0.0, 1.0, 0.0]}' -r 1" />
-  <node pkg="rviz" type="rviz" name="" args="-d $(find smabo)/rcalib.rviz" />
-
-<!--Connect to UR-->
-  <include file="$(find rovi_industrial)/ur/ur10.launch" />
-
-<!--User Input Panel-->
+<!--User Input Panel -->
   <node pkg="rtk_tools" type="panel.py" name="" args="
     conf:=$(find smabo)/rcalib.zui
-    dump:=$(find smabo)/rcalib/param.yaml geom:=360x800+1600+20">
+    dump:=$(find smabo)/rcalib/param.yaml
+    geom:=360x800+1600+20">
   </node>
+-->
 </launch>

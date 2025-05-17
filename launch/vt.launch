@@ -1,7 +1,8 @@
 <launch>
-  <rosparam command="load" file="$(find smabo)/rcalib.yaml" />
+<!--  <rosparam command="load" file="$(find smabo)/config/rcalib.yaml" />  -->
   <rosparam command="load" file="$(find smabo)/config/vt.yaml" />
-  <node pkg="rovi_utils" type="cropper.py" name="surface_cropper" output="screen">
+  <rosparam command="load" file="$(find smabo)/config/wall_eye.yaml" />
+  <node pkg="smabo" type="cropper.py" name="cropper" output="screen">
     <remap from="~config" to="/config/cropper" />
     <remap from="~param" to="/cropper" />
     <remap from="~update" to="/update/cropper" />
@@ -9,15 +10,15 @@
     <remap from="~captured" to="/response/capture" />
     <remap from="~clear" to="/request/clear" />
     <remap from="~redraw" to="/request/redraw" />
-    <remap from="~in/floats" to="/sensors/floats" />
-    <remap from="~out/floats" to="/crop/floats" />
-    <remap from="~raw/floats" to="/crop/raw/floats" />
+    <remap from="~in/pc2" to="/sensors/pc2" />
+    <remap from="~out/pc2" to="/crop/pc2" />
+    <remap from="~out/rawpc2" to="/crop/rawpc2" />
   </node>
   <node pkg="smabo" type="searcher.py" name="searcher" args="path:=$(find smabo)/recipe" output="screen">
     <remap from="~config" to="/config/searcher" />
     <remap from="~param" to="/searcher" />
-    <remap from="~in/surface/floats" to="/crop/floats" />
-    <remap from="~master/surface/floats" to="/master/surface/floats" />
+    <remap from="~in/pc2" to="/crop/pc2" />
+    <remap from="~out/pc2" to="/master/pc2" />
     <remap from="~clear" to="/request/clear" />
     <remap from="~load" to="/request/model_load" />
     <remap from="~loaded" to="/response/recipe_load" />
@@ -26,16 +27,18 @@
     <remap from="~solve" to="/request/solve" />
     <remap from="~solved" to="/searcher/solved" />
     <remap from="~redraw" to="/request/redraw" />
-    <remap from="~score" to="/searcher/score" />
+    <remap from="~poses" to="/searcher/poses" />
     <remap from="~stat" to="/searcher/stat" />
   </node>
-  <node pkg="smabo" type="picker.py" name="" output="screen">
+<!--  <node pkg="smabo" type="picker.py" name="" output="screen">
     <remap from="~config" to="/config/picker" />
     <remap from="~param" to="/picker" />
     <remap from="~clear" to="/request/clear" />
     <remap from="~solve" to="/searcher/solved" />
     <remap from="~score" to="/searcher/score" />
-    <remap from="~solved" to="/response/solve" />
+    <remap from="~solved" to="/picker/solved" />
     <remap from="~redraw" to="/request/redraw" />
-  </node>
+    <remap from="~check" to="/picker/solved" />
+    <remap from="~checked" to="/response/solve" />
+  </node> -->
 </launch>

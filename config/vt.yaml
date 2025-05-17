@@ -1,11 +1,13 @@
 config:
   searcher:
-    proc: 0
-    solver: "ransac_solver"
-    scenes: ["surface"]
-    scene_frame_ids: ["camera/capture0"]
-    master_frame_ids: ["camera/master0"]
+    solver: "feature_solver"
     solve_frame_id: "camera/capture0"
+    camera_frame_id: "camera"
+    base_frame_id: "base"
+    master_frame_id: "camera/master0"
+    capture_frame_id: "camera/capture0"
+    track_frame_id: "camera/track0"
+    mesh: "/cropper/mesh"
   cropper:
     base_frame_id: "base"
     capture_frame_id: ["camera","flange"]
@@ -13,11 +15,14 @@ config:
     frame_id: "camera/capture0"
     relay: "/sensors/X1"
     ansback: "/sensors/Y1"
-  picker:
-    multiplex: 1
-    solve_frame_id: "camera/capture0"
-    reference_frame_id: "camera/capture0"
-    base_frame_id: "base"
   rsocket:
     base_frame_id: "flange"
+
+searcher:
+  streaming: false
+
+cropper:
+  streaming: false
+
+
 
