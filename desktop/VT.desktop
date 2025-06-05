@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=VT起動
+Comment=
+Exec=docker compose exec rosnoetic bash -i -c 'roslaunch sma-lab2 start.launch'
+Icon=/home/ros/ピクチャ/icons/ros-docker.png
+Path=/home/ros/docker-noetic-capc/examples/simple
+Terminal=true
+StartupNotify=false

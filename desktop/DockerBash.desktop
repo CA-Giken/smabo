@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Docker起動
+Comment=
+Exec=docker compose up rosnoetic
+Icon=/home/ros/ピクチャ/icons/docker_official_logo_icon_169250.png
+Path=/home/ros/docker-noetic-capc/examples/simple
+Terminal=true
+StartupNotify=false

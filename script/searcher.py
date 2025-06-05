@@ -270,48 +270,86 @@ def pub_moving(RT):
 def cb_solve_do(msg):
   global cTs
   Scene=open3d_conversions.from_msg(ScenePC2)
-  cTs=np.eye(4)
-  result=None
-  if Param["feature_fitness"]>0.0:
-    result=solver.solve(Scene,Param)
-    if result["fitness"]<Param["feature_fitness"]:
-      print("searcher Feature match fitness is low",result["fitness"])
-      pub_stats(result)
-      pub_Y2.publish(mFalse)
-      return
-    cTs=result["transform"]
+  ply=0
+#  while True:
+#    if ply>20: break
+#    planes,inliers = Scene.segment_plane(distance_threshold=Param["icp_threshold"]/10,ransac_n=3,num_iterations=1000)
+#    print("segment",planes,len(inliers))
+#    if len(inliers)>4000:
+#      Scene=o3d.geometry.PointCloud.select_by_index(Scene,inliers,invert=True)
+#      o3d.io.write_point_cloud("/root/src/pc"+str(ply)+".ply",Scene,True,False)
+#    ply=ply+1
+  Tfs=[]
+  Res=[]
+  reicp=0
+  while True:
+    rt=np.eye(4)
+    result=None
+    if Param["feature_fitness"]>0.0:
+      retry=0
+      while True:
+        result=solver.solve(Scene,Param)
+        print("searcher Feature match fitness",result["fitness"],len(Scene.points))
+        if result["fitness"]<Param["feature_fitness"]:
+          retry=retry+1
+          if retry>=Param["repeat"]:
+            rt=None
+            break
+          else:
+            continue
+        else:
+          rt=result["transform"]
+          break
 
-  if Param["icp_fitness"]>0.0:
-    result=icp.solve(Model,Scene,Param,cTs)
-    if result["fitness"]<Param["icp_fitness"]:
-      print("searcher ICP fitness is low",result["fitness"])
-      pub_stats(result)
-      pub_Y2.publish(mFalse)
-      return
-    cTs=result["transform"]
+    if rt is not None:
+      result=icp.solve(Model,Scene,Param,rt)
+      print("searcher ICP fitness",result["fitness"])
+      if result["fitness"]>=Param["icp_fitness"]:
+        rt=result["transform"]
+        Tfs.append(rt)
+        Res.append(result)
+        if len(Tfs)==2:
+          break
+        else:
+          Scene=o3d.geometry.PointCloud.select_by_index(Scene,np.array(result["pairs"]).T[1],invert=True)
+          o3d.io.write_point_cloud("/root/src/pcx"+str(ply)+".ply",Scene,True,False)
+          ply=ply+1
+          print("seacher point remove",len(Scene.points),len(np.array(result["pairs"]).T[1]))
+      else:
+        reicp=reicp+1
+        if reicp>=Param["repeat"]: break
+    else:
+      break
 
-  if result is not None: pub_stats(result)
-  cb_master(True)
+  print("searcher solve",len(Tfs))
+  
+  if len(Tfs)==0:
+    pub_stats(result)
+    pub_Y2.publish(mFalse)
+    return
+  else:
+    cTs=Tfs[0]
+    pub_stats(Res[0])
+    cb_master(True)
 
   mTc=getRT(Master_Frame_Id,Config["capture_frame_id"])
-  mTtg=mTc.dot(cTs).dot(mTg)
-#  print('searcher::cb_solve_do Solve',np.linalg.inv(mTg).dot(mTtg))
-
-  pub_moving(np.linalg.inv(mTg).dot(mTtg))
-  tf=tflib.fromRT(mTtg)
   array=PoseArray()
   array.header.stamp=rospy.Time.now()
   array.header.frame_id=Config["master_frame_id"]
-  pose=Pose()
-  pose.position.x=tf.translation.x
-  pose.position.y=tf.translation.y
-  pose.position.z=tf.translation.z
-  pose.position.x=tf.translation.x
-  pose.orientation.x=tf.rotation.x
-  pose.orientation.y=tf.rotation.y
-  pose.orientation.z=tf.rotation.z
-  pose.orientation.w=tf.rotation.w
-  array.poses.append(pose)
+  for tf in Tfs:
+    mTtg=mTc.dot(tf).dot(mTg)
+    if len(array.poses)==0: pub_moving(np.linalg.inv(mTg).dot(mTtg))
+    tf=tflib.fromRT(mTtg)
+    pose=Pose()
+    pose.position.x=tf.translation.x
+    pose.position.y=tf.translation.y
+    pose.position.z=tf.translation.z
+    pose.position.x=tf.translation.x
+    pose.orientation.x=tf.rotation.x
+    pose.orientation.y=tf.rotation.y
+    pose.orientation.z=tf.rotation.z
+    pose.orientation.w=tf.rotation.w
+    array.poses.append(pose)
 
 #  rospy.Timer(rospy.Duration(5.0),lambda ev:pub_poses.publish(array),oneshot=True)
   repeat(lambda ev:pub_poses.publish(array),3)

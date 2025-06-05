@@ -67,6 +67,6 @@ def solve(cloud,prm):
     score["transform"]=result.transformation
     score["fitness"]=result.fitness
     score["rmse"]=result.inlier_rmse
-  print("feature_solver::fitness",score["fitness"])
+  print("feature_solver::fitness",score["fitness"],len(modCloud.points),len(scnCloud.points))
   return score
 

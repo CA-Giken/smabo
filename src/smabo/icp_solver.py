@@ -42,10 +42,12 @@ def solve(source,target,prm,RT):
     score["transform"]=result.transformation
     score["fitness"]=result.fitness
     score["rmse"]=result.inlier_rmse
+    score["pairs"]=result.correspondence_set
   elif Param["eval_threshold"]>0:
     result=o3d.pipelines.registration.evaluate_registration(source,target,Param["eval_threshold"],RT)
     score["transform"]=RT
     score["fitness"]=result.fitness
     score["rmse"]=result.inlier_rmse
+    score["pairs"]=result.correspondence_set
   return score
 

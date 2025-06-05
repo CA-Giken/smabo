@@ -44,37 +44,64 @@ def getRT(base,ref):
   return RT
 
 def pubpcd():
-  RT=getRT(Config["camera_frame_id"],Config["ply"][2])
-  pcd=copy.deepcopy(Cloud)
-  pcd.transform(RT)
-  scn=np.array(pcd.points)
-  zp=np.ravel(scn.T[2])
-  scn=scn[zp<Config["trim_far"]]
-  yp=np.ravel(scn.T[1])
-  zp=np.ravel(scn.T[2])
-  scn=scn[np.abs(yp/zp)<Config["trim_y"]/Config["trim_far"]]
-  xp=np.ravel(scn.T[0])
-  zp=np.ravel(scn.T[2])
-  scn=scn[np.abs(xp/zp)<Config["trim_x"]/Config["trim_far"]]
-  print("vcam trimmed",scn.shape)
-#  pcd=o3d.geometry.PointCloud()
-  pcd.clear()
-  if len(scn)<1000:
-    print("vcam points too few, abort hidden...",len(scn))
+  mesh=float(Param["mesh"])
+  if mesh>0:
+    pcd=Cloud.voxel_down_sample(mesh)
   else:
-    pcd.points=o3d.utility.Vector3dVector(scn)
-    if Config["hidden"]:
-      pset=set([])
-      for v in Config["view"]:
-        _, pm=pcd.hidden_point_removal(v,Config["view_r"])
-        pset=pset.union(set(pm))
-      plst=np.array(list(pset))
-      pcd=pcd.select_by_index(plst)
+    pcd=copy.deepcopy(Cloud)
+  if type(Config["ply"][0])==list:  #camera view emuration
+    scn=np.array(pcd.points)
+    zp=np.ravel(scn.T[2])
+    scn=scn[zp<Config["trim_far"]]
+    yp=np.ravel(scn.T[1])
+    zp=np.ravel(scn.T[2])
+    try:
+      scn=scn[np.abs(yp/zp)<Config["trim_y"]/Config["trim_far"]]
+      xp=np.ravel(scn.T[0])
+      zp=np.ravel(scn.T[2])
+      scn=scn[np.abs(xp/zp)<Config["trim_x"]/Config["trim_far"]]
+    except:
+      print("vcam:triming error")
+    else:
+      print("vcam trimmed",scn.shape)
+#  pcd=o3d.geometry.PointCloud()
+    pcd.clear()
+    if len(scn)<1000:
+      print("vcam points too few, abort hidden...",len(scn))
+    else:
+      pcd.points=o3d.utility.Vector3dVector(scn)
+      if Config["hidden"]:
+        pset=set([])
+        for v in Config["view"]:
+          _, pm=pcd.hidden_point_removal(v,Config["view_r"])
+          pset=pset.union(set(pm))
+        plst=np.array(list(pset))
+        pcd=pcd.select_by_index(plst)
   pc2=open3d_conversions.to_msg(pcd,frame_id=Config["camera_frame_id"])
   pub_pc2.publish(pc2)
+  print("vcam publish",len(pcd.points))
+
+def cb_loadscn(msg):
+  global Cloud
+  if type(Config["ply"][0])!=list: return
+  Cloud=o3d.geometry.PointCloud()
+  for ply in Config["ply"]:
+    pack= subprocess.getoutput("rospack find "+ply[0])
+    path= pack+'/'+ply[1]+'.ply'
+    print("vcam load",path)
+    pcd=o3d.io.read_point_cloud(path)
+    print("vcam load ply",path,len(Cloud.points))
+    mesh=float(Param["mesh"])
+    if mesh>0:
+      pcd=pcd.voxel_down_sample(mesh)
+    RT=getRT(Config["camera_frame_id"],ply[2])
+    pcd.transform(getRT(RT))
+    Cloud=Cloud+pcd
 
 def loadpcd():
   global Param,Plocal,Cloud
+  print("loadpcd",Config["ply"][0],type(Config["ply"][0]))
+  if type(Config["ply"][0])!=str: return
   try:
     Plocal.update(rospy.get_param("/vcam"))
   except Exception as e:
@@ -89,6 +116,8 @@ def loadpcd():
   print("vcam load",path)
   Cloud=o3d.io.read_point_cloud(path)
   print("vcam load ply",path,len(Cloud.points))
+  RT=getRT(Config["camera_frame_id"],Config["ply"][2])
+  Cloud.transform(RT)
   mesh=float(Param["mesh"])
   if mesh>0:
     Cloud=Cloud.voxel_down_sample(mesh)
@@ -119,6 +148,7 @@ except Exception as e:
   print("get_param exception:",e.args)
 ###Topics
 rospy.Subscriber("/sensors/X1",Bool,cb_capture)
+rospy.Subscriber("/request/redraw",Bool,cb_loadscn)
 pub_pc2=rospy.Publisher("/sensors/pc2",PointCloud2,queue_size=1)
 pub_done=rospy.Publisher("/sensors/Y1",Bool,queue_size=1)
 ###Globals
