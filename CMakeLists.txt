@@ -3,18 +3,23 @@ project(smabo)
 
 find_package(catkin REQUIRED COMPONENTS
   std_msgs
-#  message_generation
+  geometry_msgs
+  sensor_msgs
+  tf2_ros
 )
 
-#add_message_files(
-#  FILES
-#  Floats.msg
-#)
+add_service_files(
+  FILES
+  TextFilter.srv
+)
 
 catkin_python_setup()
 
-#generate_messages(
-#  DEPENDENCIES
-#  std_msgs
-#)
+generate_messages(
+  DEPENDENCIES
+)
+
+catkin_package(
+  CATKIN_DEPENDS std_msgs geometry_msgs sensor_msgs tf2_ros
+)
 
