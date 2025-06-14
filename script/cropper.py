@@ -24,7 +24,15 @@ from smabo import tflib
 from smabo import open3d_conversions
 from scipy import optimize
 
-Param={"cropZ":0,"cropZup":0,"cropR":0,"mesh":0.001,"ladle":0,"ladC":0,"ladleW":0,"nfrad":0,"nfmin":0,"wd":0}
+Param={
+  "mesh":5,
+  "nfrad":0,"nfmin":0,
+  "ladC":0,"ladleW":0,
+  "cropX_":0,"cropX^":0,
+  "cropY_":0,"cropY^":0,
+  "cropZ":0,
+  "cropR":0,
+}
 Config={
   "relay":"/rovi/X1",
   "base_frame_id":"world",
@@ -44,7 +52,7 @@ def P0():
 
 def voxel(pc):
   mesh=Param["mesh"]
-  if mesh==0: return pc
+  if mesh==0: return copy.deepcopy(pc)
   if len(pc.points)<10: return pc
   dwpc=pc.voxel_down_sample(mesh)
   return dwpc
@@ -52,7 +60,7 @@ def voxel(pc):
 def nf(pc):
   nfmin=Param["nfmin"]
   nfrad=Param["nfrad"]
-  if nfmin==0 or nfrad==0: return pc
+  if nfmin==0 or nfrad==0: return copy.deepcopy(pc)
   nfmin=Param["nfmin"]
   cl,ind = pc.remove_radius_outlier(nb_points=nfmin,radius=Param["nfrad"])
   dwpc=o3d.geometry.PointCloud.select_by_index(pc,ind)
@@ -62,7 +70,9 @@ def getRT(base,ref):
   try:
     ts=tfBuffer.lookup_transform(base,ref,rospy.Time())
     RT=tflib.toRT(ts.transform)
+    print("cropper::getRT ok",base,ref)
   except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
+    print("cropper::getRT failed",base,ref)
     RT=np.eye(4)
   return RT
 
@@ -98,13 +108,12 @@ def merge():
 #  pub_raw.publish(pc2)
   return Pcat
 
-def zsort(pc,down=False):
+def zsort_points(pc,down=False):
   npc=np.array(pc.points)
   nd=np.ravel(npc.T[2].argsort())
   if down: nd=nd[::-1]
-  pcc=o3d.geometry.PointCloud()
-  pcc.points=o3d.utility.Vector3dVector(npc[nd])
-  return pcc
+#  pcc=o3d.geometry.PointCloud()
+  return o3d.utility.Vector3dVector(npc[nd])
 
 def crop():
   global Pcat,Pcrop
@@ -114,26 +123,27 @@ def crop():
   if Param["nfrad"]>Param["mesh"]:
     Pcrop=nf(Pcrop)
 #Sort points
-  pcc=zsort(Pcrop)
-  if Param["ladC"]>0 and len(pcc.points)>Param["ladC"]:
+  if Param["ladC"]>0 and len(Pcrop.points)>Param["ladC"]:
+    pnt=zsort_points(Pcrop)[:Param["ladC"]]
     Pcrop=o3d.geometry.PointCloud()
-    Pcrop.points=pcc.points[:Param["ladC"]]
-#world z-crop
+    Pcrop.points=pnt
+#world Crop
   if len(Pcrop.points)>0:
     RT=getRT(Config["base_frame_id"],Config["frame_id"])
-    if RT is None:
-      RT=np.eye(4)
-      rospy.logwarn("cropper::crop::TF not found (world)")
     Pcrop.transform(RT)
-    pcc=zsort(Pcrop,down=True)
-#    if Param["cropZ"]!=0:
-#      pcw.points=pcw.points[np.ravel(np.asarray(pcw.points).T[2]>Param["cropZ"])]
-#    if Param["cropZup"]!=0:
-#      pcw.points=pcw.points[np.ravel(np.asarray(pcw.points).T[2]<Param["cropZup"])]
+    try:
+      obb=o3d.geometry.AxisAlignedBoundingBox(
+        np.array([[Param["cropX_"]],[Param["cropY_"]],[Param["cropZ"]]]),
+        np.array([[Param["cropX^"]],[Param["cropY^"]],[10000]]),
+      )
+      Pcrop=Pcrop.crop(obb)
+    except Exception as e:
+      print("cropper error",e)
 #ladle cropping(world)
-    if Param["ladW"]>0 and len(pcc.points)>Param["ladW"]:
+    if Param["ladW"]>0 and len(pcp.points)>Param["ladW"]:
+      pnt=zsort_points(Pcrop,down=True)[:Param["ladW"]]
       Pcrop=o3d.geometry.PointCloud()
-      Pcrop.points=pcc.points[:Param["ladW"]]
+      Pcrop.points=pnt
 #back to camera coordinate
     Pcrop.transform(np.linalg.inv(RT))
   cb_redraw(True)
@@ -194,17 +204,17 @@ def cb_capture(msg):
   global tfArray,Tcapt,Report,Reqcount
   keeps=Config["capture_frame_id"]
   if type(keeps) is str: keeps=[keeps]
-  try:
-    if len(srcArray)==0: tfArray=[]
-    for keep in keeps:
+  if len(srcArray)==0: tfArray=[]
+  for keep in keeps:
+    try:
       keeptf=tfBuffer.lookup_transform(Config["base_frame_id"],keep,rospy.Time())
       keeptf.header.stamp=rospy.Time.now()
       keeptf.header.frame_id=Config["base_frame_id"]
       keeptf.child_frame_id=keep+"/capture"+str(len(srcArray))
       tfArray.append(keeptf)
-    broadcaster.sendTransform(tfArray)
-  except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
-    rospy.loginfo("cropper::capture::TF lookup failure world->"+keep)
+    except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
+      rospy.loginfo("cropper::capture::TF lookup failure world->"+keep)
+  broadcaster.sendTransform(tfArray)
   if pub_relay is not None:
     pub_relay.publish(mTrue)
     Reqcount=len(srcArray)
