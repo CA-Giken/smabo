@@ -27,7 +27,7 @@ from scipy import optimize
 Param={
   "mesh":5,
   "nfrad":0,"nfmin":0,
-  "ladC":0,"ladleW":0,
+  "ladC":0,"ladW":0,
   "cropX_":0,"cropX^":0,
   "cropY_":0,"cropY^":0,
   "cropZ":0,
@@ -129,7 +129,7 @@ def crop():
     Pcrop.points=pnt
 #world Crop
   if len(Pcrop.points)>0:
-    RT=getRT(Config["base_frame_id"],Config["frame_id"])
+    RT=getRT(Config["base_frame_id"],Config["streaming_frame_id"] if Reqcount==0 else Config["frame_id"])
     Pcrop.transform(RT)
     try:
       obb=o3d.geometry.AxisAlignedBoundingBox(
@@ -152,14 +152,17 @@ def crop():
 def cb_pc2(msg):
   global srcArray,Tcapt,Pcat,Reqcount
   pc=open3d_conversions.from_msg(msg)
-  pub_report.publish(str({"pcount":sum(len(pc.points) for pc in srcArray)}))
   if Reqcount>len(srcArray):
     srcArray.append(pc)
     merge()
-  else:
+    psum=sum(len(pcd.points) for pcd in srcArray)
+  else:   #camera will be streaming
     Pcat=pc
     srcArray=[]
     Reqcount=0
+    psum=len(pc.points)
+  pub_report.publish(str({"pcount":psum}))
+  print("cropper::cb_pc2",psum)
   crop()
   rospy.Timer(rospy.Duration(0.1),lambda msg:pub_capture.publish(mTrue),oneshot=True)
   return
@@ -217,7 +220,7 @@ def cb_capture(msg):
   broadcaster.sendTransform(tfArray)
   if pub_relay is not None:
     pub_relay.publish(mTrue)
-    Reqcount=len(srcArray)
+    Reqcount=len(srcArray)+1
   Tcapt=time.time()
 
 def cb_ansback(msg):

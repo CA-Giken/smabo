@@ -271,14 +271,6 @@ def cb_solve_do(msg):
   global cTs
   Scene=open3d_conversions.from_msg(ScenePC2)
   ply=0
-#  while True:
-#    if ply>20: break
-#    planes,inliers = Scene.segment_plane(distance_threshold=Param["icp_threshold"]/10,ransac_n=3,num_iterations=1000)
-#    print("segment",planes,len(inliers))
-#    if len(inliers)>4000:
-#      Scene=o3d.geometry.PointCloud.select_by_index(Scene,inliers,invert=True)
-#      o3d.io.write_point_cloud("/root/src/pc"+str(ply)+".ply",Scene,True,False)
-#    ply=ply+1
   Tfs=[]
   Res=[]
   reicp=0
@@ -307,7 +299,7 @@ def cb_solve_do(msg):
       if result["fitness"]>=Param["icp_fitness"]:
         rt=result["transform"]
         Tfs.append(rt)
-        Res.append(result)
+        Res.append(copy.copy(result))
         if len(Tfs)==2:
           break
         else:
@@ -320,8 +312,6 @@ def cb_solve_do(msg):
         if reicp>=Param["repeat"]: break
     else:
       break
-
-  print("searcher solve",len(Tfs))
   
   if len(Tfs)==0:
     pub_stats(result)

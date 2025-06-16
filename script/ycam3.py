@@ -46,5 +46,5 @@ sc2 = Vector3(400,300,300)
 while not rospy.is_shutdown():
   mesh_file1 = "package://"+Config["mesh"][0]+"/"+Config["mesh"][1]
   markers.publishMesh(T1,mesh_file1,'white', sc1, 0.5)
-  markers.publishCube(T2,(0.1,0.1,0.1,0.05), sc2, 0.5)
+#  markers.publishCube(T2,(0.1,0.1,0.1,0.05), sc2, 0.5)
   rospy.Rate(5).sleep() #5Hz
