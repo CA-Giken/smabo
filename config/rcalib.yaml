@@ -1,10 +1,10 @@
 config:
   rcalib:
     on_hand: False
+    base_frame_id: "world"
     board_frame_id: "camera/track0"
     camera_frame_id: "camera"
     flange_frame_id: "tool0_controller"
-    mount_frame_id: "base"
 
 searcher:
   streaming: true

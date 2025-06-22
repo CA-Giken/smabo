@@ -21,6 +21,7 @@ from smabo import tflib
 
 Config={
   "config_tf":"/config_tf",
+  "base_frame_id":"world",
   "camera_frame_id":"camera",
   "mount_frame_id":"mount",
   "flange_frame_id":"flange",
@@ -45,9 +46,9 @@ def cb_X1(f):
     return
   try:
     if not Config["on_hand"]:
-      bTm=tfBuffer.lookup_transform("world",Config["flange_frame_id"], rospy.Time())  #The board may be held on the flange
+      bTm=tfBuffer.lookup_transform(Config["base_frame_id"],Config["flange_frame_id"], rospy.Time())  #The board may be held on the flange
     else:
-      bTm=tfBuffer.lookup_transform("world",Config["mount_frame_id"], rospy.Time())  #The camera mount may be attached on some link
+      bTm=tfBuffer.lookup_transform(Config["base_frame_id"],Config["mount_frame_id"], rospy.Time())  #The camera mount may be attached on some link
   except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
     pb_Y1.publish(mFalse)
     return

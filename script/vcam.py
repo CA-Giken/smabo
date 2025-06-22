@@ -25,7 +25,7 @@ Config={
   "view":[[0,0,0]],
   "view_r":50000,
   "hidden":True,
-  "ply": ['sma-lab2','mesh/test{:02d}','camera'],
+  "ply": ['/src/test{:02d}','camera'],
 }
 Param={
   "streaming":False,
@@ -86,15 +86,14 @@ def cb_loadscn(msg):
   if type(Config["ply"][0])!=list: return
   Cloud=o3d.geometry.PointCloud()
   for ply in Config["ply"]:
-    pack= subprocess.getoutput("rospack find "+ply[0])
-    path= pack+'/'+ply[1]+'.ply'
+    path=ply[0]+'.ply'
     print("vcam load",path)
     pcd=o3d.io.read_point_cloud(path)
     print("vcam load ply",path,len(Cloud.points))
     mesh=float(Param["mesh"])
     if mesh>0:
       pcd=pcd.voxel_down_sample(mesh)
-    RT=getRT(Config["camera_frame_id"],ply[2])
+    RT=getRT(Config["camera_frame_id"],ply[1])
     pcd.transform(getRT(RT))
     Cloud=Cloud+pcd
 
@@ -110,13 +109,12 @@ def loadpcd():
     Param.update(rospy.get_param("/sensors"))
   except Exception as e:
     print("get_param exception:",e.args)
-  pack= subprocess.getoutput("rospack find "+Config["ply"][0])
   frame=int(Plocal['frame'])
-  path= pack+'/'+Config["ply"][1].format(frame)+'.ply'
+  path=Config["ply"][0].format(frame)+'.ply'
   print("vcam load",path)
   Cloud=o3d.io.read_point_cloud(path)
   print("vcam load ply",path,len(Cloud.points))
-  RT=getRT(Config["camera_frame_id"],Config["ply"][2])
+  RT=getRT(Config["camera_frame_id"],Config["ply"][1])
   Cloud.transform(RT)
   mesh=float(Param["mesh"])
   if mesh>0:

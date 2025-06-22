@@ -138,7 +138,7 @@ def crop():
       )
       Pcrop=Pcrop.crop(obb)
     except Exception as e:
-      print("cropper error",e)
+      print("cropper error bounding box")
 #ladle cropping(world)
     if Param["ladW"]>0 and len(pcp.points)>Param["ladW"]:
       pnt=zsort_points(Pcrop,down=True)[:Param["ladW"]]
