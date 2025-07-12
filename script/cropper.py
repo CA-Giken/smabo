@@ -98,15 +98,14 @@ def cb_redraw(msg):
   pub_pc2.publish(pc2)
   return
 
-def merge():
-  global Pcat
-  Pcat=o3d.geometry.PointCloud()
-  for n,pc in enumerate(srcArray):
+def merge(pclst):
+  pcat=o3d.geometry.PointCloud()
+  for n,pc in enumerate(pclst):
     arrange(pc,n)
-    Pcat=Pcat+pc
+    pcat=pcat+pc
 #  pc2=open3d_conversions.to_msg(Pcat,frame_id=Config["frame_id"])
 #  pub_raw.publish(pc2)
-  return Pcat
+  return pcat
 
 def zsort_points(pc,down=False):
   npc=np.array(pc.points)
@@ -152,19 +151,19 @@ def crop():
 def cb_pc2(msg):
   global srcArray,Tcapt,Pcat,Reqcount
   pc=open3d_conversions.from_msg(msg)
-  if Reqcount>len(srcArray):
+  if Reqcount>len(srcArray):  #camera may triggerd
     srcArray.append(pc)
-    merge()
-    psum=sum(len(pcd.points) for pcd in srcArray)
-  else:   #camera will be streaming
+    Pcat=merge(srcArray)
+    psum=len(Pcat.points)
+    rospy.Timer(rospy.Duration(0.1),lambda msg:pub_capture.publish(mTrue),oneshot=True)
+  else:   #camera may streaming
     Pcat=pc
-    srcArray=[]
+    srcArray=[pc]
     Reqcount=0
     psum=len(pc.points)
   pub_report.publish(str({"pcount":psum}))
   print("cropper::cb_pc2",psum)
   crop()
-  rospy.Timer(rospy.Duration(0.1),lambda msg:pub_capture.publish(mTrue),oneshot=True)
   return
 
 def cb_param(msg):
@@ -205,6 +204,9 @@ def cb_clear(msg):
 
 def cb_capture(msg):
   global tfArray,Tcapt,Report,Reqcount
+  if Reqcount==0 and len(srcArray)>0 :   # Camera may streaming
+    print("cropper::camera may streaming, capture ignored")
+    return
   keeps=Config["capture_frame_id"]
   if type(keeps) is str: keeps=[keeps]
   if len(srcArray)==0: tfArray=[]
@@ -222,9 +224,6 @@ def cb_capture(msg):
     pub_relay.publish(mTrue)
     Reqcount=len(srcArray)+1
   Tcapt=time.time()
-
-def cb_ansback(msg):
-  if msg.data is False: pub_capture.publish(mFalse)
 
 def parse_argv(argv):
   args={}
@@ -254,8 +253,6 @@ rospy.Subscriber("~in/pc2",PointCloud2,cb_pc2)
 rospy.Subscriber("~clear",Bool,cb_clear)
 rospy.Subscriber("~capture",Bool,cb_capture)
 rospy.Subscriber("~redraw",Bool,cb_redraw)
-if "ansback" in Config:
-  rospy.Subscriber(Config["ansback"],Bool,cb_ansback)
 ###Output topics
 pub_pc2=rospy.Publisher("~out/pc2",PointCloud2,queue_size=1)
 pub_raw=rospy.Publisher("~out/rawpc2",PointCloud2,queue_size=1)

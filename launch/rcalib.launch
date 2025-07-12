@@ -1,7 +1,6 @@
 <launch>
-  <rosparam command="load" file="$(find smabo)/config/rcalib.yaml" />
-  <rosparam command="load" file="$(find smabo)/rcalib/param.yaml" />
-<!--nodes for robot calib-->
+<!--  <rosparam command="load" file="$(find smabo)/config/rcalib.yaml" />
+  <rosparam command="load" file="$(find smabo)/rcalib/param.yaml" />  -->
   <node pkg="smabo" type="rcalib.py" name="" output="screen">
     <remap from="~config" to="/config/rcalib" />
     <remap from="~clear" to="/request/clear" />
@@ -20,5 +19,4 @@
     dump:=$(find smabo)/rcalib/param.yaml
     geom:=360x800+1600+20">
   </node>
--->
 </launch>

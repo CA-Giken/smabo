@@ -198,7 +198,7 @@ def cb_save(msg):
 #  pub_pc2.publish(ModelPC2)
 
 def cb_load(msg):
-  global Model,ModelPC2,tfReg,Param,Master_Frame_Id
+  global Model,ModelPC2,tfReg,Param,Master_Frame_Id,ModelPLY
   tfReg=[]
 #load .tf files
   ls=os.listdir(Config["path"])
@@ -216,7 +216,8 @@ def cb_load(msg):
   yd=yaml.load(f,Loader=yaml.SafeLoader)
   f.close()
 
-  modCloud=o3d.io.read_point_cloud(path.replace('.yaml','.ply'))
+  ModelPLY=path.replace('.yaml','.ply')
+  modCloud=o3d.io.read_point_cloud(ModelPLY)
   Model=learn_feat(modCloud,Param)
 #  learn_rot(pcd,Param['rotate'],Param['icp_threshold'])
 #  learn_journal(pcd,Param["cutter"]["base"],Param["cutter"]["offset"],Param["cutter"]["width"],Param["cutter"]["align"])
@@ -254,6 +255,9 @@ def cb_solve(msg):
   global Param
   rospy.Timer(rospy.Duration(0.01),cb_solve_do,oneshot=True)
   Param.update(rospy.get_param("~param"))
+  if Param["streaming"]:
+    print("searcher::cb_solve skipp")
+    return
 
 def pub_moving(RT):
   rep={}
@@ -307,6 +311,7 @@ def cb_solve_do(msg):
           o3d.io.write_point_cloud("/root/src/pcx"+str(ply)+".ply",Scene,True,False)
           ply=ply+1
           print("seacher point remove",len(Scene.points),len(np.array(result["pairs"]).T[1]))
+          if len(Scene.points)<len(Model.points): break
       else:
         reicp=reicp+1
         if reicp>=Param["repeat"]: break
@@ -351,7 +356,10 @@ def cb_pc2(msg):
   ScenePC2=msg
 
 def cb_clear(msg):
-  global cTs,ScenePC2
+  global cTs,ScenePC2,Model
+  if Param["streaming"]:
+    print("searcher::cb_clear skipp")
+    return
   cTs=np.eye(4)
   ScenePC2=None
   cb_master(True)
@@ -364,14 +372,17 @@ def cb_scan(msg):
     print("get_param exception:",e.args)
   if Param["streaming"] and ScenePC2 is not None and Model is not None:
     Scene=open3d_conversions.from_msg(ScenePC2)
-    result=icp.solve(Model,Scene,Param,cTs)
-    print("searcher::scan",result["fitness"])
-    if result["fitness"]>Param["icp_fitness"]:
-      cTs=result["transform"]
-      cb_master(True)
-    else:
-      cb_clear(None)
-    pub_stats(result)
+    try:
+      result=icp.solve(Model,Scene,Param,cTs)
+      print("searcher::scan",result["fitness"])
+      if result["fitness"]>Param["icp_fitness"]:
+        cTs=result["transform"]
+        cb_master(True)
+      else:
+        cb_clear(None)
+      pub_stats(result)
+    except Exception as e:
+      print("cb_scan fault")
   rospy.Timer(rospy.Duration(0.5),cb_scan,oneshot=True)
   return
 
