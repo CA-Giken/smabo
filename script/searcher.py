@@ -41,8 +41,16 @@ Param={
   "rotate":0,
   "repeat":1,
   "cutter":{"base":0,"offset":0,"width":0,"crop":0,"align":"x","trim":0},
-  "feature_fitness":0.7,
-  "icp_fitness":0.7
+  "feature_fitness":0.01,
+  "icp_fitness":0.7,
+  "checker":{
+    "Tx":{"max": 20,"min": -20},
+    "Ty":{"max": 20,"min": -20},
+    "Tz":{"max": 20,"min": -20},
+    "azimuth":{"max": 360,"min": 0},
+    "fitness":{"max": 10,"min": "icp_fitness"},
+    "rotation":{"max": 25,"min": -25}
+  }
 }
 Config={
   "path":"recipe",
@@ -239,17 +247,44 @@ def cb_load(msg):
 def cb_score():
   pass
 
-def pub_stats(result):
+def check(dat):
+  judge=True
+  rule=Param["checker"]
+  for key in dat:
+    if key in rule:
+      val=dat[key]
+      dat[key]=(val,0)
+      minval=rule[key]["min"]
+      maxval=rule[key]["max"]
+      if type(minval)==str: minval=Param[minval]
+      if type(maxval)==str: maxval=Param[maxval]
+      if minval<maxval:
+        if val>maxval:
+          dat[key]=(val,1)
+          judge=False
+        elif val<minval:
+          dat[key]=(val,-1)
+          judge=False
+      else:
+        if val>maxval and val<minval:
+          dat[key]=(val,2)
+          judge=False
+  return judge
+
+def report_solve(result,pub=False):
   fitness=Float64()
   fitness.data=result["fitness"]
   pub_fitness.publish(fitness)
   rmse=Float64()
   rmse.data=result["rmse"]
   pub_rmse.publish(rmse)
-  rep={}
-  rep["fitness"]=result["fitness"]
-  rep["rmse"]=result["rmse"]
-  pub_report.publish(str(rep))
+  report={}
+  report["fitness"]=result["fitness"]
+  report["rmse"]=result["rmse"]
+  if pub:
+    check(report)
+    pub_report.publish(str(report))
+  return report
 
 def cb_solve(msg):
   global Param
@@ -259,17 +294,18 @@ def cb_solve(msg):
     print("searcher::cb_solve skipp")
     return
 
-def pub_moving(RT):
-  rep={}
+def report_moved(RT,report={}):
   vz=np.ravel(RT[:3,2]) #basis vector Z
   vz=vz/np.linalg.norm(vz)
-  rep["azimuth"]=np.arccos(np.dot(vz,np.array([0,0,1])))*180/np.pi
+  report["azimuth"]=np.arccos(np.dot(vz,np.array([0,0,1])))*180/np.pi
   vr=R.from_matrix(RT[:3,:3]).as_rotvec(degrees=True)
-  rep["rotation"]=vr[2]
-  rep["Tx"]=RT[0,3]
-  rep["Ty"]=RT[1,3]
-  rep["Tz"]=RT[2,3]
-  rospy.Timer(rospy.Duration(0.5),lambda ev:pub_report.publish(str(rep)),oneshot=True)
+  report["rotation"]=vr[2]
+  report["Tx"]=RT[0,3]
+  report["Ty"]=RT[1,3]
+  report["Tz"]=RT[2,3]
+  f=check(report)
+  pub_report.publish(str(report))
+  return f
 
 def cb_solve_do(msg):
   global cTs
@@ -319,21 +355,22 @@ def cb_solve_do(msg):
       break
   
   if len(Tfs)==0:
-    pub_stats(result)
-    pub_Y2.publish(mFalse)
+    report_solve(result,pub=True)
+    rospy.Timer(rospy.Duration(0.1),lambda ev:pub_Y2.publish(mFalse),oneshot=True)
     return
   else:
     cTs=Tfs[0]
-    pub_stats(Res[0])
+    report=report_solve(Res[0],pub=False)
     cb_master(True)
 
   mTc=getRT(Master_Frame_Id,Config["capture_frame_id"])
   array=PoseArray()
   array.header.stamp=rospy.Time.now()
   array.header.frame_id=Config["master_frame_id"]
+  judge=Bool()
   for tf in Tfs:
     mTtg=mTc.dot(tf).dot(mTg)
-    if len(array.poses)==0: pub_moving(np.linalg.inv(mTg).dot(mTtg))
+    if len(array.poses)==0: judge.data=report_moved(np.linalg.inv(mTg).dot(mTtg),report=report)
     tf=tflib.fromRT(mTtg)
     pose=Pose()
     pose.position.x=tf.translation.x
@@ -348,7 +385,8 @@ def cb_solve_do(msg):
 
 #  rospy.Timer(rospy.Duration(5.0),lambda ev:pub_poses.publish(array),oneshot=True)
   repeat(lambda ev:pub_poses.publish(array),3)
-  pub_Y2.publish(mTrue)
+  
+  rospy.Timer(rospy.Duration(0.1),lambda ev:pub_Y2.publish(judge),oneshot=True)
 
 def cb_pc2(msg):
   global ScenePC2
@@ -380,7 +418,7 @@ def cb_scan(msg):
         cb_master(True)
       else:
         cb_clear(None)
-      pub_stats(result)
+      report_solve(result,pub=True)
     except Exception as e:
       print("cb_scan fault")
   rospy.Timer(rospy.Duration(0.5),cb_scan,oneshot=True)
